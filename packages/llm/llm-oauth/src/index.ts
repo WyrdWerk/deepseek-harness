@@ -10,6 +10,12 @@
  * adapter per configured route. Token refresh runs inside pi-ai under the
  * store lock whenever an access token goes stale.
  *
+ * Model lists stay current: each provider is rebuilt with a `fetchModels`
+ * overlay that lists its own endpoint (ChatGPT Codex `/codex/models`, xAI
+ * `/v1/models`) over the freshly refreshed OAuth credential, caches the
+ * result on disk, and re-fetches on mount and on an interval — so new model
+ * releases appear without a plugin upgrade, exactly like pi and oh-my-pi.
+ *
  * ```yaml
  * - id: llm-oauth
  *   name: '@deepseek-ai/dsh-llm-oauth'
@@ -31,15 +37,22 @@
  * @module @deepseek-ai/dsh-llm-oauth
  */
 
-import { createModels } from '@earendil-works/pi-ai'
+import { createModels, createProvider } from '@earendil-works/pi-ai'
 import { builtinProviders } from '@earendil-works/pi-ai/providers/all'
+import { openAICodexResponsesApi } from '@earendil-works/pi-ai/api/openai-codex-responses.lazy'
+import { openAICompletionsApi } from '@earendil-works/pi-ai/api/openai-completions.lazy'
+import { openAIResponsesApi } from '@earendil-works/pi-ai/api/openai-responses.lazy'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { PiAiOAuthAdapter } from './adapter.ts'
+import { fetchCodexModels, fetchXaiModels, JsonFileModelsStore } from './catalog.ts'
 import { resolveCredentialStore } from './store.ts'
 
 export { PiAiOAuthAdapter } from './adapter.ts'
 export type { PiAiOAuthAdapterOptions } from './adapter.ts'
+export { fetchCodexModels, fetchXaiModels, JsonFileModelsStore } from './catalog.ts'
 export { JsonFileCredentialStore, resolveCredentialStore } from './store.ts'
 export type {
   FileCredentialStore,
@@ -75,6 +88,14 @@ export interface Config {
    * built-in defaults (`openai-codex` and `xai`).
    */
   providers: Record<string, OAuthProviderEntry>
+  /** Fetch model lists from each provider's listing endpoint and keep them fresh. */
+  dynamicModels: boolean
+  /** Codex CLI version to claim when listing ChatGPT Codex models. */
+  clientVersion: string
+  /** Model-cache file; empty uses ~/.cache/dsh/llm-oauth-models.json. */
+  modelsCachePath: string
+  /** Milliseconds between background catalog refreshes. */
+  refreshIntervalMs: number
 }
 
 const entry: z<OAuthProviderEntry> = z.object({
@@ -89,6 +110,10 @@ export const Config: z<Config> = z.object({
   authPath: z.string().default(''),
   streamIdleTimeoutMs: z.number().min(1_000).max(2 ** 31 - 1).default(300_000),
   providers: z.dict(entry).default({}),
+  dynamicModels: z.boolean().default(true),
+  clientVersion: z.string().default('0.147.0'),
+  modelsCachePath: z.string().default(''),
+  refreshIntervalMs: z.number().min(60_000).max(2 ** 31 - 1).default(6 * 60 * 60 * 1000),
 })
 
 /** Shipped defaults for the OAuth providers the installed catalog carries. */
@@ -166,17 +191,46 @@ export function apply(ctx: Context, config: Config): void {
     )
   }
 
-  const models = createModels({ credentials: store })
+  const modelsCachePath = config.modelsCachePath.trim().length > 0
+    ? config.modelsCachePath.trim()
+    : join(homedir(), '.cache', 'dsh', 'llm-oauth-models.json')
+  const models = createModels({
+    credentials: store,
+    ...config.dynamicModels ? { modelsStore: new JsonFileModelsStore(modelsCachePath) } : {},
+  })
   const catalog = builtinProviders()
   const disposers: Array<() => void> = []
   for (const [providerId, entryOf] of entries) {
-    const provider = catalog.find(candidate => candidate.id === providerId)
+    let provider = catalog.find(candidate => candidate.id === providerId)
     if (provider === undefined) {
       if (explicit) {
         throw new Error(`llm-oauth: the installed pi-ai catalog has no provider "${providerId}"`)
       }
       ctx.logger.warn(`llm-oauth: catalog provider "${providerId}" absent; skipping its default route`)
       continue
+    }
+    if (config.dynamicModels && (providerId === 'openai-codex' || providerId === 'xai')) {
+      // Rebuild the catalog provider with a fetchModels overlay: same id, auth,
+      // and wire implementations, plus the listing fetcher whose result
+      // Models.refreshModels() caches on disk and serves as the live catalog.
+      // The static catalog stays as the baseline until the first fetch lands.
+      provider = createProvider({
+        id: provider.id,
+        name: provider.name,
+        ...provider.baseUrl === undefined ? {} : { baseUrl: provider.baseUrl },
+        ...provider.headers === undefined ? {} : { headers: provider.headers },
+        auth: provider.auth,
+        models: [...provider.getModels()],
+        api: providerId === 'openai-codex'
+          ? openAICodexResponsesApi()
+          : {
+            'openai-completions': openAICompletionsApi(),
+            'openai-responses': openAIResponsesApi(),
+          },
+        fetchModels: providerId === 'openai-codex'
+          ? context => fetchCodexModels(context, config.clientVersion)
+          : fetchXaiModels,
+      })
     }
     models.setProvider(provider)
     const adapter = new PiAiOAuthAdapter({
@@ -192,6 +246,42 @@ export function apply(ctx: Context, config: Config): void {
     })
     disposers.push(ctx.llm.registerAdapter([entryOf.route], adapter))
   }
+
+  if (config.dynamicModels) {
+    // `Models.refreshModels()` exists on the runtime class but not the
+    // exported interface, so reach it structurally and guard the call.
+    interface RefreshOutcome {
+      aborted: boolean
+      errors: ReadonlyMap<string, Error>
+    }
+    interface RefreshCall {
+      refresh?: (options?: {
+        allowNetwork?: boolean
+        force?: boolean
+        signal?: AbortSignal
+      }) => Promise<RefreshOutcome>
+    }
+    const refresher = models as unknown as RefreshCall
+    const refresh = (): Promise<void> => {
+      if (refresher.refresh === undefined) {
+        ctx.logger.warn('llm-oauth: installed pi-ai exposes no Models.refresh; model lists stay static')
+        return Promise.resolve()
+      }
+      return refresher.refresh({ allowNetwork: true })
+        .then((result: { aborted: boolean; errors: ReadonlyMap<string, Error> }) => {
+          for (const [id, error] of result.errors) {
+            ctx.logger.warn(`llm-oauth: model refresh for "${id}" failed: ${error instanceof Error ? error.message : String(error)}`)
+          }
+        })
+        .catch((error: unknown) => ctx.logger.warn(`llm-oauth: model refresh failed: ${error instanceof Error ? error.message : String(error)}`))
+    }
+    // Mount-time refresh restores the disk cache instantly and fetches when
+    // stale; the interval keeps the list current for new model releases.
+    void refresh()
+    const timer = setInterval(() => void refresh(), config.refreshIntervalMs)
+    ctx.effect(() => () => clearInterval(timer))
+  }
+
   ctx.effect(() => () => {
     for (const dispose of disposers) dispose()
   })
