@@ -16,19 +16,23 @@ below is the complete, authoritative record of the divergence.
 | `1572d13` | **Publish the web app through `tailscale serve`** — `web-app` gains a `tailscaleServe` option that publishes the bound loopback port after listen; MagicDNS discovery in `web-startup`; new `tailscale-trust` module with tests; cookbook page and agent notes. |
 | `83c5392` | **OAuth LLM provider routes + advisor plugin** — new `@deepseek-ai/dsh-llm-oauth` (ChatGPT-subscription Codex on route `codex`, Grok/X-subscription xAI on route `xai`; file-backed credential store sharing pi's `~/.pi/agent/auth.json` or the Codex CLI's; pi-ai refreshes tokens under the store lock) and `@deepseek-ai/dsh-advisor` (turn-settled advisory reviewer injecting silent-unless-material notes via `agent.inject()`). Both rows mount in `dsh-base`. |
 | `5df8e7a` | **Dynamic model catalogs** — each OAuth provider is rebuilt with a `fetchModels` overlay listing its own endpoint (`/backend-api/codex/models`, `/v1/models`), cached in `~/.cache/dsh/llm-oauth-models.json`, refreshed on mount and every 6h; new model generations appear without a plugin upgrade. |
-| (this commit) | **Fork guard CI + this document** — `.github/workflows/fork-guard.yml` secret-scans every push with pinned gitleaks + `.gitleaks.toml` allowlist; FORK.md records the divergence; README carries a fork banner; `dsh-llm-oauth` README documents dynamic catalogs. |
+| `80c8f7c` | **Fork guard CI + fork documentation** — `.github/workflows/fork-guard.yml` secret-scans every push with pinned gitleaks; `FORK.md` records the divergence; README carries a fork banner; `dsh-llm-oauth` README documents dynamic catalogs. |
+| (this commit) | **Scope fork-guard to fork commits only** — the scan now covers `47f9438..HEAD` (only commits made in this fork), not upstream history; the upstream-fixture allowlists are gone with it. Upstream's 6k-commit history is out of scope by policy: audited once (2026-08-15) with zero real credentials found, and re-audited only if the fork rebases. |
 
 ## Working conventions
 
 - **Update this file in the same commit** that adds or changes fork-local
-  behavior. A change that is not listed here is a bug in the process.
+  behavior. A change that is listed here is the contract; a change that is
+  not listed is a bug in the process.
 - **Secrets never enter the repository.** Credentials live in
   `~/.pi/agent/auth.json` (0600) or `$DSH_HOME/.credentials.yaml`; repo
   config carries only paths and references (`authPath`, `apiKeyEnv`,
-  `storeKey`). The gitleaks guard enforces this on every push.
+  `storeKey`). The fork-guard workflow enforces this on every push, over
+  the fork's own commits (`47f9438..HEAD`).
+- **Rebasing upstream:** update `FORK_POINT` in `.github/workflows/fork-guard.yml`
+  to the new merge-base in the same commit, re-run `pnpm install && pnpm run
+  build:lib:host`, resolve the translation-pairing records (`pnpm run
+  doc-sync`), and update the table above.
 - **The staging mirror** (`~/Agent/Agent/dsh-plugins` on the dev machine)
-  holds source-of-truth copies of the fork-local packages and the
+  holds source-of-truth copies of the fork-local packages, CI files, and the
   `install.sh` re-apply script; keep it in sync when packages change.
-- **Merging upstream:** rebase local commits onto upstream `master`, re-run
-  `pnpm install && pnpm run build:lib:host`, resolve the translation-pairing
-  records (`pnpm run doc-sync`), and re-verify the table above.

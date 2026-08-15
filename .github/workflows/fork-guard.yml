@@ -1,16 +1,22 @@
-# Fork guard: secret-scan every push with gitleaks.
+# Fork guard: secret-scan the FORK's own commits with gitleaks.
 #
-# Runs the pinned gitleaks release directly (not gitleaks-action, which needs
-# a license key for private repositories) against the full checked-out
-# history using .gitleaks.toml, so the allowlist for the benign
-# translation-pairing blob-hash records lives next to the rules it adjusts.
-# A new finding fails the job with exit code 1.
+# Scope is deliberately narrow: only commits made in this fork (fork point
+# FORK_POINT .. HEAD), never upstream history — upstream's 6k+ commits are
+# not ours to police, and their test fixtures trip generic heuristics. The
+# pinned gitleaks release runs directly (gitleaks-action needs a license
+# key for private repos). A finding in a fork commit fails the job.
+#
+# If the fork is ever rebased onto a newer upstream master, update FORK_POINT
+# to the new merge-base SHA in the same commit.
 name: fork-guard
 
 on:
   push:
     branches: [master]
   pull_request:
+
+env:
+  FORK_POINT: 47f94387004e7d75d021d0e79cc36173004e5430
 
 jobs:
   gitleaks:
@@ -27,5 +33,5 @@ jobs:
           tar -xzf gitleaks.tar.gz gitleaks
           ./gitleaks version
 
-      - name: Scan history for secrets
-        run: ./gitleaks detect --source . --config .gitleaks.toml --redact --verbose
+      - name: Scan fork commits for secrets
+        run: ./gitleaks detect --source . --config .gitleaks.toml --redact --verbose --log-opts="$FORK_POINT..HEAD"
