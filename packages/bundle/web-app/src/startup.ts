@@ -1,6 +1,6 @@
 /**
  * The web app's command-line provider: it parses the `dsh --profile web` flag
- * family (`--host`, `--port`, `--trusted-host`) and its `--help`
+ * family (`--host`, `--port`, `--trusted-host`, `--tailscale`) and its `--help`
  * text, then provides the immutable values as {@link WEB_STARTUP_SERVICE}.
  * Ordinary rows inject that service before reading it from lazy config.
  * @module @deepseek-ai/dsh-web-app/startup
@@ -9,6 +9,7 @@
 import { Command } from 'commander'
 import type { Context } from '@deepseek-ai/cordis'
 import { parseCmdline } from '@deepseek-ai/dsh-cmdline'
+import { collectTrustedHosts } from './tailscale-trust.ts'
 
 /** Stable Cordis plugin name. */
 export const name = 'web-startup'
@@ -25,8 +26,13 @@ export interface WebStartupValues {
   host?: string
   /** `--port`, absent when the invocation did not name one. */
   port?: number
-  /** Explicit `--trusted-host` authorities, in argument order. */
+  /** Explicit `--trusted-host` authorities, in argument order, plus env/discovery. */
   trustedHosts: string[]
+  /**
+   * When true, the web-runtime row publishes the bound port through
+   * `tailscale serve` after the server listens.
+   */
+  tailscaleServe: boolean
 }
 
 /** The web flag family, as commander parsed it. */
@@ -34,6 +40,7 @@ interface WebOptions {
   host?: string
   port?: string
   trustedHost?: string[]
+  tailscale?: boolean
 }
 
 /**
@@ -48,10 +55,12 @@ function webCommand(): Command {
     .option('--host <host>', 'bind host')
     .option('--port <port>', 'listen port; pass 0 to let the OS pick a free one')
     .option('--trusted-host <authority...>', 'extra authority the /api browser-trust fence accepts (host or host:port; repeatable)')
+    .option('--tailscale', 'trust this node\'s MagicDNS name (or DSH_TRUSTED_HOST) and publish the loopback bind through tailscale serve')
     .addHelpText('after', `
 Examples:
   dsh --profile web                          serve on the composed host and port
   dsh --profile web --port 8080              serve on another port
+  dsh --profile web --tailscale --port 28950 bind loopback, trust this node's MagicDNS name, publish via tailscale serve
 `)
 }
 
@@ -72,10 +81,19 @@ export function apply(ctx: Context): void {
     if (options.port !== undefined && !/^\d+$/.test(options.port)) {
       program.error(`error: --port must be a number, got ${JSON.stringify(options.port)}`)
     }
+    const tailscaleServe = options.tailscale === true || process.env.DSH_TAILSCALE_SERVE === '1'
+    const trustedHosts = collectTrustedHosts({
+      flags: options.trustedHost ?? [],
+      discover: tailscaleServe,
+    })
+    if (tailscaleServe && trustedHosts.length === 0) {
+      program.error('error: --tailscale requires a running Tailscale node with a MagicDNS name, or DSH_TRUSTED_HOST / --trusted-host')
+    }
     ctx.provide(WEB_STARTUP_SERVICE, {
       ...options.host !== undefined && { host: options.host },
       ...options.port !== undefined && { port: Number(options.port) },
-      trustedHosts: options.trustedHost ?? [],
+      trustedHosts,
+      tailscaleServe,
     } satisfies WebStartupValues)
   })
   parseCmdline(ctx, program)

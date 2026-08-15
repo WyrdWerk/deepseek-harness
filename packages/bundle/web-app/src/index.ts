@@ -21,6 +21,7 @@ import type {} from '@deepseek-ai/cordis-plugin-loader'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-system-prompt'
 import type {} from '@deepseek-ai/dsh-shell-env'
+import { formatTailnetUrl, publishTailscaleServe } from './tailscale-trust.ts'
 
 /** Stable Cordis plugin name. */
 export const name = 'web-app'
@@ -47,12 +48,18 @@ export interface Config {
   surfaceContext: boolean
   /** Explicit `--trusted-host` authorities from this invocation. */
   trustedHosts: string[]
+  /**
+   * Publish the bound loopback port through `tailscale serve` after listen.
+   * Discovery of the MagicDNS name happens in `web-startup` before this row.
+   */
+  tailscaleServe: boolean
 }
 
 export const Config: z<Config> = z.object({
   printUrl: z.boolean().default(true),
   surfaceContext: z.boolean().default(true),
   trustedHosts: z.array(String).default([]),
+  tailscaleServe: z.boolean().default(false),
 })
 
 /** Bind-dependent Web values shared by the trust fence and URL display. */
@@ -134,6 +141,9 @@ export const internals: { resolveDistIndex: () => string } = { resolveDistIndex 
  */
 export function apply(ctx: Context, config: Config): void {
   const runtime = resolveLanTrust(ctx.webServer.host, config.trustedHosts)
+  if (config.tailscaleServe) {
+    publishTailscaleServe(ctx.webServer.host, ctx.webServer.port)
+  }
   // Release dependent rows only after bind-dependent trust has been sampled once.
   ctx.provide(WEB_RUNTIME_SERVICE, runtime)
   ctx.plugin(FrontendStatic, { distIndex: internals.resolveDistIndex() })
@@ -165,7 +175,14 @@ export function apply(ctx: Context, config: Config): void {
       // Reuse the exact LAN snapshot provided to the /api trust fence.
       const lanCandidate = runtime.lanAddresses[0]
       const port = ctx.webServer.port
-      console.log(`dsh web: ${localWebUrl(ctx)}${lanCandidate === undefined ? '' : ` (LAN: http://${lanCandidate}:${String(port)})`}`)
+      const tailnetAuthority = runtime.trustedHosts.find(entry => !runtime.lanAddresses.includes(entry))
+      const extras = [
+        ...lanCandidate === undefined ? [] : [`LAN: http://${lanCandidate}:${String(port)}`],
+        ...config.tailscaleServe && tailnetAuthority !== undefined
+          ? [`tailnet: ${formatTailnetUrl(tailnetAuthority, port)}`]
+          : [],
+      ]
+      console.log(`dsh web: ${localWebUrl(ctx)}${extras.length === 0 ? '' : ` (${extras.join('; ')})`}`)
     }
     // This row's own activation can precede a sibling failure. The app owns
     // readiness by waiting for its Loader tree, or prints at once in a

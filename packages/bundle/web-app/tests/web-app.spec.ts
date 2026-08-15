@@ -13,6 +13,7 @@ import { Context } from '@deepseek-ai/cordis'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import type { WebServer } from '@deepseek-ai/dsh-host-webserver'
 import { apply, Config, internals } from '../src/index.ts'
+import { defaultTailscaleRunner, internals as tailscaleInternals } from '../src/tailscale-trust.ts'
 
 vi.mock('node:os', async importOriginal => ({
   ...await importOriginal<typeof import('node:os')>(),
@@ -27,6 +28,7 @@ let dist: string | undefined
 afterEach(() => {
   vi.restoreAllMocks()
   internals.resolveDistIndex = originalResolve
+  tailscaleInternals.runTailscale = defaultTailscaleRunner
   if (dist !== undefined) rmSync(dist, { recursive: true, force: true })
   dist = undefined
 })
@@ -84,7 +86,7 @@ describe('web-app runtime glue', () => {
     } as never)
     provideLoader(ctx)
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-    apply(ctx, new Config({ printUrl: true, surfaceContext: true, trustedHosts: ['lab.internal'] }))
+    apply(ctx, new Config({ printUrl: true, surfaceContext: true, trustedHosts: ['lab.internal'], tailscaleServe: false }))
     await ctx.plugin(SystemPrompt, { persona: '' })
     // Settle the injected registrations.
     await new Promise(resolve => setTimeout(resolve, 0))
@@ -112,7 +114,7 @@ describe('web-app runtime glue', () => {
     const ctx = new Context()
     ctx.provide('webServer', fakeHttpServer().server)
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-    apply(ctx, new Config({ printUrl: false, surfaceContext: true, trustedHosts: [] }))
+    apply(ctx, new Config({ printUrl: false, surfaceContext: true, trustedHosts: [], tailscaleServe: false }))
     await ctx.plugin(SystemPrompt, { persona: '' })
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(log).not.toHaveBeenCalled()
@@ -133,7 +135,7 @@ describe('web-app runtime glue', () => {
         return () => {}
       },
     } as never)
-    apply(ctx, new Config({ printUrl: false, surfaceContext: false, trustedHosts: [] }))
+    apply(ctx, new Config({ printUrl: false, surfaceContext: false, trustedHosts: [], tailscaleServe: false }))
     await ctx.plugin(SystemPrompt, { persona: '' })
     await new Promise(resolve => setTimeout(resolve, 0))
     const assembly = await ctx.systemPrompt.assemble()
@@ -148,10 +150,66 @@ describe('web-app runtime glue', () => {
     const ctx = new Context()
     ctx.provide('webServer', fakeHttpServer().server)
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-    apply(ctx, new Config({ printUrl: true, surfaceContext: true, trustedHosts: [] }))
+    apply(ctx, new Config({ printUrl: true, surfaceContext: true, trustedHosts: [], tailscaleServe: false }))
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(log).toHaveBeenCalledWith('dsh web: http://127.0.0.1:4567')
     await ctx.fiber.dispose()
+  })
+
+  it('publishes Tailscale Serve and prints the tailnet URL after listen', async () => {
+    stageDist()
+    const calls: string[][] = []
+    tailscaleInternals.runTailscale = (args) => {
+      calls.push([...args])
+      return { status: 0, stdout: '', stderr: '' }
+    }
+    const ctx = new Context()
+    ctx.provide('webServer', fakeHttpServer().server)
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    apply(ctx, new Config({
+      printUrl: true,
+      surfaceContext: false,
+      trustedHosts: ['node.ts.net'],
+      tailscaleServe: true,
+    }))
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(calls).toEqual([['serve', '--bg', '--https=4567', 'http://127.0.0.1:4567']])
+    expect(log).toHaveBeenCalledWith('dsh web: http://127.0.0.1:4567 (tailnet: https://node.ts.net:4567)')
+    await ctx.fiber.dispose()
+  })
+
+  it('prints LAN and tailnet extras together when Serve is requested on an all-interfaces bind', async () => {
+    stageDist()
+    tailscaleInternals.runTailscale = () => ({ status: 0, stdout: '', stderr: '' })
+    const ctx = new Context()
+    ctx.provide('webServer', fakeHttpServer('0.0.0.0').server)
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    apply(ctx, new Config({
+      printUrl: true,
+      surfaceContext: false,
+      trustedHosts: ['node.ts.net'],
+      tailscaleServe: true,
+    }))
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(log).toHaveBeenCalledWith(
+      'dsh web: http://127.0.0.1:4567 (LAN: http://192.168.1.5:4567; tailnet: https://node.ts.net:4567)',
+    )
+    await ctx.fiber.dispose()
+  })
+
+  it('fails loud when Tailscale Serve cannot publish', () => {
+    stageDist()
+    tailscaleInternals.runTailscale = () => ({ status: 1, stdout: '', stderr: 'serve denied' })
+    const ctx = new Context()
+    ctx.provide('webServer', fakeHttpServer().server)
+    expect(() => {
+      apply(ctx, new Config({
+        printUrl: false,
+        surfaceContext: false,
+        trustedHosts: ['node.ts.net'],
+        tailscaleServe: true,
+      }))
+    }).toThrow('serve denied')
   })
 
   it('defers the URL line until Loader settlement and drops it on failure or teardown', async () => {
@@ -164,7 +222,7 @@ describe('web-app runtime glue', () => {
     const settlement = new Promise<void>((resolve) => { release = resolve })
     provideLoader(settled, () => settlement)
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-    apply(settled, new Config({ printUrl: true, surfaceContext: true, trustedHosts: [] }))
+    apply(settled, new Config({ printUrl: true, surfaceContext: true, trustedHosts: [], tailscaleServe: false }))
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(log).not.toHaveBeenCalled()
     release!()
@@ -178,7 +236,7 @@ describe('web-app runtime glue', () => {
     const failed = new Context()
     failed.provide('webServer', fakeHttpServer().server)
     provideLoader(failed, async () => { throw new Error('boot failed') })
-    apply(failed, new Config({ printUrl: true, surfaceContext: true, trustedHosts: [] }))
+    apply(failed, new Config({ printUrl: true, surfaceContext: true, trustedHosts: [], tailscaleServe: false }))
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(log).not.toHaveBeenCalled()
     await failed.fiber.dispose()
@@ -194,7 +252,7 @@ describe('web-app runtime glue', () => {
     let releaseTorn: () => void
     const tornSettlement = new Promise<void>((resolve) => { releaseTorn = resolve })
     provideLoader(torn, () => tornSettlement)
-    apply(torn, new Config({ printUrl: true, surfaceContext: true, trustedHosts: [] }))
+    apply(torn, new Config({ printUrl: true, surfaceContext: true, trustedHosts: [], tailscaleServe: false }))
     await child.dispose() // the webServer service goes away
     releaseTorn!()
     await new Promise(resolve => setTimeout(resolve, 0))
@@ -210,7 +268,7 @@ describe('web-app runtime glue', () => {
     const { server } = fakeHttpServer()
     Object.defineProperty(server, 'port', { get: () => undefined })
     ctx.provide('webServer', server)
-    apply(ctx, new Config({ printUrl: false, surfaceContext: true, trustedHosts: [] }))
+    apply(ctx, new Config({ printUrl: false, surfaceContext: true, trustedHosts: [], tailscaleServe: false }))
     await ctx.plugin(SystemPrompt, { persona: '' })
     await new Promise(resolve => setTimeout(resolve, 0))
     await expect(ctx.systemPrompt.assemble()).rejects.toThrow('webServer service missing')

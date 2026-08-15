@@ -20,7 +20,7 @@ DeepSeek Harness 目前处于 _开发者预览_ 阶段，正在快速迭代。**
 npx @deepseek-ai/dsh web
 ```
 
-该命令会启动 Web UI，默认地址为 `http://127.0.0.1:3080`。详见 [Web UI 指南](docs/user/guide/index.md)。
+该命令会启动 Web UI，默认地址为 `http://127.0.0.1:3080`。详见 [Web UI 指南](docs/user/guide/index.md)。若要把该回环绑定发布到你的 Tailscale tailnet（尾部网络）且不写死主机名，运行 `dsh web --tailscale --port <free-port>`（[实操手册（cookbook）](docs/cookbook/tailscale-web.md)）。
 
 ### 从源码运行
 

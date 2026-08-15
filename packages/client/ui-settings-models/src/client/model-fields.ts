@@ -58,7 +58,11 @@ export interface ModelCatalogValidationFailure {
 }
 
 
-/** Convert a schema-validated catalog value into records without dropping hidden fields. */
+/**
+ * Convert a schema-validated catalog value into records without dropping hidden fields.
+ * @param value - user-owned `models` value, or any non-array placeholder.
+ * @returns one draft per array entry; non-objects become empty records.
+ */
 export function modelDrafts(value: unknown): ModelDraft[] {
   if (!Array.isArray(value)) return []
   return value.map(entry =>

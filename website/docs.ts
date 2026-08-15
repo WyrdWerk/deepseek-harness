@@ -409,6 +409,14 @@ const reference = [
     section: { root: '开发手册', en: 'Cookbook' },
     order: 4,
   }]),
+  ...pairedPages([{
+    source: 'docs/cookbook/tailscale-web.md',
+    route: 'reference/cookbook/tailscale-web.md',
+    label: { root: 'Tailscale Serve', en: 'Tailscale Serve' },
+    sidebar: { root: 'zh-reference', en: 'en-reference' },
+    section: { root: '开发手册', en: 'Cookbook' },
+    order: 5,
+  }]),
 ]
 
 /** A sidebar group, matched to pages by `label`. */
