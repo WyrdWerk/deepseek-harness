@@ -80,6 +80,8 @@ export type {
   ResolvedPiAiProviderProfile,
 } from './config.ts'
 export { supportedProtocols } from './provider.ts'
+export { toPiContext } from './context.ts'
+export { mapStopReason, mapUsage, toStreamChunks } from './stream.ts'
 
 export const name = 'llm-pi-ai'
 export const inject = ['llm']
