@@ -19,7 +19,8 @@ below is the complete, authoritative record of the divergence.
 | `80c8f7c` | **Fork guard CI + fork documentation** — `.github/workflows/fork-guard.yml` secret-scans every push with pinned gitleaks; `FORK.md` records the divergence; README carries a fork banner; `dsh-llm-oauth` README documents dynamic catalogs. |
 | `5eb852c` | **Scope fork-guard to fork commits only** — the scan covers `47f9438..HEAD` (only commits made in this fork), never upstream history; the upstream-fixture allowlists are gone with it. Upstream's 6k-commit history is out of scope by policy: audited once (2026-08-15) with zero real credentials found, and re-audited only if the fork rebases. |
 | `c95ad94` | **Harden the guard** — pin the real fork-point SHA and add a CI step that resolves `FORK_POINT` and fails on an empty commit range, so an invalid pin can never again produce a vacuous green scan. |
-| (this commit) | **Drop the real-API e2e workflow** - it tests the official DeepSeek adapters this fork removed and its preflight hard-fails without a DEEPSEEK_API_KEY repo secret, so it has failed on every push since 706daad. Removed rather than silenced; restore it (plus the secret and adapters) if upstream e2e coverage is ever wanted back. |
+| `245c0eb` | **Drop the real-API e2e workflow** - it tests the official DeepSeek adapters this fork removed and its preflight hard-fails without a DEEPSEEK_API_KEY repo secret, so it has failed on every push since 706daad. Removed rather than silenced; restore it (plus the secret and adapters) if upstream e2e coverage is ever wanted back. |
+| `0dfa6b3` | **Drop the macOS Seatbelt sandbox leg** - the fork is Linux-only by policy; upstream's Sandbox matrix included a macos-latest/seatbelt leg whose darwin-parity failures on this fork were noise, not signal. Linux legs (bwrap, Landlock x2 arch) remain the full sandbox proof surface. |
 ## Working conventions
 
 - **Update this file in the same commit** that adds or changes fork-local
