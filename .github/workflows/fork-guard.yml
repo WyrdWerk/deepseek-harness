@@ -1,0 +1,31 @@
+# Fork guard: secret-scan every push with gitleaks.
+#
+# Runs the pinned gitleaks release directly (not gitleaks-action, which needs
+# a license key for private repositories) against the full checked-out
+# history using .gitleaks.toml, so the allowlist for the benign
+# translation-pairing blob-hash records lives next to the rules it adjusts.
+# A new finding fails the job with exit code 1.
+name: fork-guard
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install gitleaks 8.30.1
+        run: |
+          curl -sSL -o gitleaks.tar.gz \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          tar -xzf gitleaks.tar.gz gitleaks
+          ./gitleaks version
+
+      - name: Scan history for secrets
+        run: ./gitleaks detect --source . --config .gitleaks.toml --redact --verbose

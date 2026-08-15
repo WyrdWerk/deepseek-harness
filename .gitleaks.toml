@@ -1,0 +1,29 @@
+# Fork secret-scan configuration (see .github/workflows/fork-guard.yml).
+#
+# Extends the full default gitleaks rule set with two narrow, inspected
+# allowlists covering everything the generic-api-key heuristic flags in
+# this repository's history (audited 2026-08-15; all 47 baseline findings
+# were manually verified benign, zero were real credentials):
+#
+# 1. Bilingual translation-pairing records (*.i18n.yaml under .agents/notes/
+#    and docs/) store the git blob hash of each documented side — 40-char
+#    hex content metadata, rewritten whenever docs change. Allowed by path.
+# 2. Three upstream test files carry deliberately fake fixture keys
+#    (FIXTURE_SECRET = 'sk-fixture1234567890' and friends) to exercise key
+#    validation and telemetry redaction. Allowed by exact path.
+#
+# Anything matching outside these paths fails CI.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "translation-pairing blob-hash records are content metadata, not secrets"
+paths = ['''(^|/)\.agents/notes/.*\.i18n\.yaml$''', '''(^|/)docs/.*\.i18n\.yaml$''']
+
+[[allowlists]]
+description = "upstream test fixtures with deliberately fake keys (key-validation and redaction specs)"
+paths = [
+  '''(^|/)packages/client/ui-settings-models/tests/components\.client\.spec\.tsx$''',
+  '''(^|/)packages/session/session-telemetry-otel/tests/loader-composition\.e2e\.ts$''',
+  '''(^|/)packages/session/session-telemetry/tests/redact\.spec\.ts$''',
+]
