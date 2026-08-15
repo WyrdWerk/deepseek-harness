@@ -111,6 +111,15 @@ const THINKING_FORMAT_GATE: Record<PiAiThinkingFormat, true> = {
 /** Reasoning-dispatch wire formats a profile may name, most-reached first. */
 export const SUPPORTED_THINKING_FORMATS = Object.keys(THINKING_FORMAT_GATE) as readonly PiAiThinkingFormat[]
 
+/**
+ * Provider route keys this overlay refuses to serve. The installed pi-ai
+ * catalog ships a `deepseek` route whose models reach the official endpoint;
+ * this deployment funnels every request through its own gateway instead, so the
+ * official route is stripped from the catalog and rejected at resolution.
+ * `deepseek-official` is withheld for parity with the twin adapter's namespace.
+ */
+const FORBIDDEN_PROVIDERS: Record<string, true> = { deepseek: true, 'deepseek-official': true }
+
 let providerIndex: Map<string, Provider> | undefined
 
 /**
@@ -120,7 +129,11 @@ let providerIndex: Map<string, Provider> | undefined
  * @returns the catalog provider index.
  */
 function catalogProviders(): Map<string, Provider> {
-  providerIndex ??= new Map(builtinProviders().map(provider => [provider.id, provider]))
+  providerIndex ??= new Map(
+    builtinProviders()
+      .filter(provider => !FORBIDDEN_PROVIDERS[provider.id])
+      .map(provider => [provider.id, provider]),
+  )
   return providerIndex
 }
 
@@ -138,7 +151,7 @@ export function catalogProvider(provider: string): Provider | undefined {
  * @returns the catalog provider ids.
  */
 export function catalogProviderIds(): readonly string[] {
-  return getBuiltinProviders()
+  return getBuiltinProviders().filter(id => !FORBIDDEN_PROVIDERS[id])
 }
 
 /**
@@ -445,6 +458,10 @@ export interface RouteCatalog {
  */
 export function resolveRouteModels(request: RouteCatalogRequest): RouteCatalog {
   const { provider } = request
+  if (FORBIDDEN_PROVIDERS[provider]) {
+    invalid(provider, 'is a forbidden route; this overlay serves models only through its own gateway,'
+      + ' not the official endpoint the installed catalog would reach')
+  }
   const defaults = catalogModels(provider)
   const providerBaseUrl = catalogProvider(provider)?.baseUrl
   // An absent `models` key and an empty one are the same request: the config

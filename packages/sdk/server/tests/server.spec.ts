@@ -11,7 +11,7 @@ import AgentRegistry, { type Agent, type AgentHandle } from '@deepseek-ai/dsh-ag
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import * as agentCore from '@deepseek-ai/dsh-agent-spine-demo'
 import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
-import * as LlmDeepSeek from '@deepseek-ai/dsh-llm-deepseek'
+import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
 import SubagentRuntime, { type SubagentResult, type SubagentRunEndInfo } from '@deepseek-ai/dsh-subagent'
 import type { JsonRpcTransportPeer } from '@deepseek-ai/dsh-sdk-protocol'
 import { HarnessSdkJsonRpcServer } from '../src/index.ts'
@@ -59,9 +59,25 @@ async function mockCompletionServer(): Promise<{ url: string; requests: unknown[
   return { url: `http://127.0.0.1:${address.port}`, requests, headers }
 }
 
-async function makeHarness(storageDir: string) {
+async function makeHarness(storageDir: string, llmBaseURL?: string) {
   const ctx = new Context()
   await ctx.plugin(agentCore, { workspaceContext: false })
+  if (llmBaseURL !== undefined) {
+    vi.stubEnv('OPENAI_API_KEY', 'test-key')
+    await ctx.plugin(LlmPiAi, {
+      providers: {
+        openai: {
+          apiKeyEnv: 'OPENAI_API_KEY',
+          api: 'openai-completions',
+          baseURL: llmBaseURL,
+          models: [
+            { id: 'dsagent-model', name: 'dsagent-model', contextWindow: 8192, maxTokens: 4096 },
+            { id: 'plain-model', name: 'plain-model', contextWindow: 8192, maxTokens: 4096 },
+          ],
+        },
+      },
+    })
+  }
   await ctx.plugin(SubagentRuntime)
   await ctx.plugin(JsonlSessionPersistence, { root: storageDir })
   await new Promise(resolve => setTimeout(resolve, 50))
@@ -112,16 +128,14 @@ describe('HarnessSdkJsonRpcServer', () => {
   it('creates a harness agent and calls the configured OpenAI-compatible endpoint', { timeout: 15_000 }, async () => {
     const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-'))
     const llmServer = await mockCompletionServer()
-    vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
-    vi.stubEnv('DEEPSEEK_BASE_URL', llmServer.url)
-    const ctx = await makeHarness(storageDir)
+    const ctx = await makeHarness(storageDir, llmServer.url)
     try {
       const transport = new FakeTransport()
       const server = new HarnessSdkJsonRpcServer(ctx, transport)
 
       const init = await server.handleRequest('initialize', {
         cwd: storageDir,
-        provider: 'deepseek-official',
+        provider: 'openai',
         model: 'dsagent-model',
         maxTokens: 321,
       }) as { serverInfo: { name: string } }
@@ -157,7 +171,7 @@ describe('HarnessSdkJsonRpcServer', () => {
       const orphanHandle = await ctx.agents.create({
         sessionId: SessionId('orphan-session'),
         meta: { cwd: storageDir },
-        agentOptions: { provider: 'deepseek-official', model: 'dsagent-model' },
+        agentOptions: { provider: 'openai', model: 'dsagent-model' },
       })
       orphanHandle.agent.followup(createUserMessage({ content: [{ type: 'text', text: 'outside the sdk session map' }], source: { kind: 'user' } }))
       await orphanHandle.agent.whenIdle()
@@ -298,13 +312,11 @@ describe('HarnessSdkJsonRpcServer', () => {
   it('creates an SDK session without an optional system prompt', { timeout: 15_000 }, async () => {
     const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-no-system-'))
     const llmServer = await mockCompletionServer()
-    vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
-    vi.stubEnv('DEEPSEEK_BASE_URL', llmServer.url)
-    const ctx = await makeHarness(storageDir)
+    const ctx = await makeHarness(storageDir, llmServer.url)
     try {
       const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
 
-      await server.initialize({ cwd: storageDir, provider: 'deepseek-official', model: 'plain-model' })
+      await server.initialize({ cwd: storageDir, provider: 'openai', model: 'plain-model' })
       await server.prompt({
         sessionId: 'plain',
         contentBlocks: [{ type: 'text', text: 'hello' }],
@@ -328,20 +340,20 @@ describe('HarnessSdkJsonRpcServer', () => {
       const parentHandle = await ctx.agents.create({
         sessionId: SessionId('main'),
         meta: { cwd: storageDir },
-        agentOptions: { provider: 'deepseek-official', model: 'deepseek-official' },
+        agentOptions: { provider: 'openai', model: 'gpt-4o' },
       })
       // A custom in-process provider may own its child at the provider/root
       // scope while preserving durable parent lineage.
       const handle = await ctx.agents.create({
         sessionId: SessionId('child-session'),
         meta: { cwd: storageDir, parentSession: SessionId('main') },
-        agentOptions: { provider: 'deepseek-official', model: 'deepseek-official' },
+        agentOptions: { provider: 'openai', model: 'gpt-4o' },
       })
       expect(ctx.agents.roots()).toContain(handle.agent)
       const parentlessHandle = await parentHandle.agent.ctx.agents.create({
         sessionId: SessionId('parentless-child-session'),
         meta: { cwd: storageDir },
-        agentOptions: { model: 'deepseek-official' },
+        agentOptions: { model: 'gpt-4o' },
       })
       await settleSubagent(ctx, parentHandle.agent, {
         provider: 'spawn',
@@ -398,12 +410,12 @@ describe('HarnessSdkJsonRpcServer', () => {
       const parentHandle = await ctx.agents.create({
         sessionId: SessionId('collision-parent'),
         meta: { cwd: storageDir },
-        agentOptions: { model: 'deepseek-official' },
+        agentOptions: { model: 'gpt-4o' },
       })
       const collidingChild = await parentHandle.agent.ctx.agents.create({
         sessionId: SessionId('remote-run-id'),
         meta: { cwd: storageDir, parentSession: SessionId('collision-parent') },
-        agentOptions: { model: 'deepseek-official' },
+        agentOptions: { model: 'gpt-4o' },
       })
 
       await settleSubagent(ctx, parentHandle.agent, {
@@ -437,12 +449,12 @@ describe('HarnessSdkJsonRpcServer', () => {
       const parentHandle = await ctx.agents.create({
         sessionId: SessionId('continuation-parent'),
         meta: { cwd: storageDir },
-        agentOptions: { model: 'deepseek-official' },
+        agentOptions: { model: 'gpt-4o' },
       })
       const childHandle = await parentHandle.agent.ctx.agents.create({
         sessionId: SessionId('continuation-child'),
         meta: { cwd: storageDir, parentSession: SessionId('continuation-parent') },
-        agentOptions: { model: 'deepseek-official' },
+        agentOptions: { model: 'gpt-4o' },
       })
 
       await settleSubagent(ctx, parentHandle.agent, {
@@ -482,12 +494,12 @@ describe('HarnessSdkJsonRpcServer', () => {
       const oldParent = await ctx.agents.create({
         sessionId: SessionId('old-parent'),
         meta: { cwd: storageDir },
-        agentOptions: { model: 'deepseek-official' },
+        agentOptions: { model: 'gpt-4o' },
       })
       const oldChild = await oldParent.agent.ctx.agents.create({
         sessionId: SessionId('reused-child'),
         meta: { cwd: storageDir, parentSession: SessionId('old-parent') },
-        agentOptions: { model: 'deepseek-official' },
+        agentOptions: { model: 'gpt-4o' },
       })
       const first = Promise.withResolvers<SubagentResult>()
       const sameLifetime = Promise.withResolvers<SubagentResult>()
@@ -523,12 +535,12 @@ describe('HarnessSdkJsonRpcServer', () => {
       const newParent = await ctx.agents.create({
         sessionId: SessionId('new-parent'),
         meta: { cwd: storageDir },
-        agentOptions: { model: 'deepseek-official' },
+        agentOptions: { model: 'gpt-4o' },
       })
       const newChild = await newParent.agent.ctx.agents.create({
         sessionId: SessionId('reused-child'),
         meta: { cwd: storageDir, parentSession: SessionId('new-parent') },
-        agentOptions: { model: 'deepseek-official' },
+        agentOptions: { model: 'gpt-4o' },
       })
       currentLocalAgent = newChild.agent
       const secondRun = await ctx.subagents.start('reused', {
@@ -581,12 +593,12 @@ describe('HarnessSdkJsonRpcServer', () => {
       const parent = await ctx.agents.create({
         sessionId: SessionId('provider-reuse-parent'),
         meta: { cwd: storageDir },
-        agentOptions: { model: 'deepseek-official' },
+        agentOptions: { model: 'gpt-4o' },
       })
       const child = await parent.agent.ctx.agents.create({
         sessionId: SessionId('provider-reuse-child'),
         meta: { cwd: storageDir, parentSession: SessionId('provider-reuse-parent') },
-        agentOptions: { model: 'deepseek-official' },
+        agentOptions: { model: 'gpt-4o' },
       })
       const localResult = Promise.withResolvers<SubagentResult>()
       const remoteResult = Promise.withResolvers<SubagentResult>()
@@ -674,18 +686,18 @@ describe('HarnessSdkJsonRpcServer', () => {
       parentHandle = await ctx.agents.create({
         sessionId: SessionId('fallback-parent'),
         meta: { cwd: storageDir },
-        agentOptions: { provider: 'deepseek-official', model: 'deepseek-official' },
+        agentOptions: { provider: 'openai', model: 'gpt-4o' },
       })
       handle = await parentHandle.agent.ctx.agents.create({
         sessionId: SessionId('fallback-child-session'),
         meta: { cwd: storageDir, parentSession: SessionId('fallback-parent') },
-        agentOptions: { provider: 'deepseek-official', model: 'deepseek-official' },
+        agentOptions: { provider: 'openai', model: 'gpt-4o' },
       })
       const fallbackChild = handle.agent
       failedHandle = await parentHandle.agent.ctx.agents.create({
         sessionId: SessionId('failed-child-session'),
         meta: { cwd: storageDir },
-        agentOptions: { provider: 'deepseek-official', model: 'deepseek-official' },
+        agentOptions: { provider: 'openai', model: 'gpt-4o' },
       })
       const missedStartResult = Promise.withResolvers<SubagentResult>()
       const disposeMissedStartProvider = ctx.subagents.registerProvider({
@@ -778,17 +790,17 @@ describe('HarnessSdkJsonRpcServer', () => {
   it('does not re-register an LLM adapter whose provider already has an owner', async () => {
     const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-existing-llm-'))
     const ctx = await makeHarness(storageDir)
-    vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
-    await ctx.plugin(LlmDeepSeek)
+    vi.stubEnv('OPENAI_API_KEY', 'test-key')
+    await ctx.plugin(LlmPiAi, { providers: { openai: { apiKeyEnv: 'OPENAI_API_KEY' } } })
     try {
       const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
       const inspect = server as unknown as { hasAdapterFor(provider: string): boolean }
 
-      expect(inspect.hasAdapterFor('deepseek-official')).toBe(true)
+      expect(inspect.hasAdapterFor('openai')).toBe(true)
       expect(inspect.hasAdapterFor('missing-provider')).toBe(false)
-      await server.initialize({ cwd: storageDir, provider: 'deepseek-official', model: 'preinstalled-model' })
+      await server.initialize({ cwd: storageDir, provider: 'openai', model: 'preinstalled-model' })
 
-      expect(ctx.get('llm')?.listProviders().filter(provider => provider.id === 'deepseek-official')).toEqual([{ id: 'deepseek-official', name: 'DeepSeek' }])
+      expect(ctx.get('llm')?.listProviders().filter(provider => provider.id === 'openai')).toEqual([{ id: 'openai', name: 'openai' }])
       await server.shutdown()
     } finally {
       await ctx.fiber.dispose()
@@ -799,15 +811,15 @@ describe('HarnessSdkJsonRpcServer', () => {
   it('rejects a missing non-DeepSeek provider when an LLM service already exists', async () => {
     const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-new-llm-'))
     const ctx = await makeHarness(storageDir)
-    vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
-    await ctx.plugin(LlmDeepSeek)
+    vi.stubEnv('OPENAI_API_KEY', 'test-key')
+    await ctx.plugin(LlmPiAi, { providers: { openai: { apiKeyEnv: 'OPENAI_API_KEY' } } })
     try {
       const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
 
       await expect(server.initialize({ cwd: storageDir, provider: 'private', model: 'new-model' }))
         .rejects.toThrow('no adapter registered for provider "private"')
 
-      expect(ctx.get('llm')?.listProviders()).toEqual([{ id: 'deepseek-official', name: 'DeepSeek' }])
+      expect(ctx.get('llm')?.listProviders()).toEqual([{ id: 'openai', name: 'openai' }])
       await server.shutdown()
     } finally {
       await ctx.fiber.dispose()
@@ -824,7 +836,7 @@ describe('HarnessSdkJsonRpcServer', () => {
         const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
         await expect(server.initialize({
           cwd: storageDir,
-          provider: 'deepseek-official',
+          provider: 'openai',
           model: 'model',
           maxTokens,
         })).rejects.toThrow('initialize maxTokens must be a positive safe integer')

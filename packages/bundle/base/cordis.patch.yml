@@ -63,8 +63,8 @@
     - id: agent-default-model
       name: '@deepseek-ai/dsh-agent-default-model'
       config:
-        provider: deepseek-official
-        model: deepseek-v4-flash
+        provider: openai
+        model: gpt-4o
 
     - id: jobs
       name: '@deepseek-ai/dsh-jobs-local'
@@ -73,8 +73,8 @@
       name: '@deepseek-ai/dsh-llm-retry'
 
     # User-settings document (`$DSH_HOME/settings.yaml`, hot-reloaded): a
-    # `llm-deepseek:` or `llm-pi-ai:` section there overrides the adapter entries
-    # below without a restart, and is what the web Models page writes.
+    # `llm-pi-ai:` section there overrides the adapter entry below without a
+    # restart, and is what the web Models page writes.
     - id: settings
       name: '@deepseek-ai/dsh-settings-file'
 
@@ -85,15 +85,17 @@
     - id: credentials
       name: '@deepseek-ai/dsh-credentials-local'
 
-    # The pi-ai multi-provider twin, mounted dormant: zero routes (and no extra
-    # models in the picker) until a `llm-pi-ai:` settings section supplies provider
-    # profiles — then those routes register live, keys resolving per request
-    # through their apiKeyEnv references, and drop again when the section empties.
-    # Supplying those profiles is exactly what the web Models page does. Which
-    # adapters exist is composition; which providers run is the user's settings
-    # document.
+    # The pi-ai multi-provider adapter, configured with the `openai` catalog
+    # route: gpt-4o and its siblings register live, the key resolving per
+    # request through the OPENAI_API_KEY apiKeyEnv reference. A `llm-pi-ai:`
+    # settings section overrides this entry without a restart; the web Models
+    # page writes that same section.
     - id: llm-pi-ai
       name: '@deepseek-ai/dsh-llm-pi-ai'
+      config:
+        providers:
+          openai:
+            apiKeyEnv: OPENAI_API_KEY
 
     - id: session-persistence-jsonl
       name: '@deepseek-ai/dsh-session-persistence-jsonl'
@@ -125,40 +127,6 @@
     # loud without it; web layers reuse this same mount for list rows.
     - id: session-projection
       name: '@deepseek-ai/dsh-session-projection'
-
-    # Session telemetry is mounted but disabled by default. DSH_TELEMETRY_MODE
-    # explicitly opts into FULL or FEEDBACK_ONLY reporting; uploading mirrors
-    # session-log records onto OTLP/HTTP logs with no session-telemetry/record redaction
-    # rule, so exports are the raw captured copy. The deployment stance, env
-    # seams, and follow-ups are pinned in the default-off Agent Note.
-    # DSH_TELEMETRY_OTLP_URL overrides the production endpoint. A non-empty
-    # DSH_TELEMETRY_DISABLED — any value, including '0'/'false' — opts the
-    # process out (the launchers patch the row disabled; config cannot disable
-    # a row). Exports carry the harness home's anonymous user id ($DSH_HOME/.anonymous-user-id,
-    # random UUID; delete the file to reset the identity) as the Resource's
-    # user.id. The exporter/processor values normally bound the shutdown drain
-    # to ~1s against an unreachable collector: exporter.timeoutMillis is both
-    # the per-attempt socket timeout and the retry deadline (1s effectively
-    # disables the SDK's 5-try backoff), while maxExportBatchSize == maxQueueSize
-    # (both explicit) makes the drain a single batch. The SDK awaits
-    # exporter.forceFlush() outside exportTimeoutMillis, so the backend's 3s
-    # shutdownTimeoutMillis is the load-bearing outer bound when a transport
-    # promise never settles. Every CLI exit path drains it by disposing the root
-    # on SIGINT/SIGTERM.
-    - id: session-telemetry-otel
-      name: '@deepseek-ai/dsh-session-telemetry-otel'
-      config:
-        mode: !!js process.env.DSH_TELEMETRY_MODE || 'DISABLED'
-        shutdownTimeoutMillis: 3000
-        exporter:
-          url: !!js process.env.DSH_TELEMETRY_OTLP_URL ?? 'https://harness-telemetry.deepseeksvc.com/v1/logs'
-          compression: gzip
-          timeoutMillis: 1000
-        processor:
-          scheduledDelayMillis: 10000
-          maxQueueSize: 2048
-          maxExportBatchSize: 2048
-          exportTimeoutMillis: 1500
 
     - id: subprocess
       name: '@deepseek-ai/dsh-subprocess-local'
@@ -393,23 +361,16 @@
         thresholds: [3, 5, 8]
         argumentsPreviewChars: 500
 
-    # Every mode enables the stable model-facing web_search tool. DeepSeek search
-    # resolves the same DEEPSEEK_API_KEY credential the Models page manages for
-    # chat, at each search; its Messages endpoint is separate from the
-    # chat-completions endpoint, so it takes its own base-URL override. Fetch stays
+    # Every mode enables the stable model-facing web_search tool. No search
+    # provider is mounted in the base layer: `searchProvider` stays empty, so
+    # the model-facing tool reports search unavailable unless a later overlay
+    # (profile cordis.patch.yml or a --patch) wires a provider. Fetch stays
     # disabled and no fetch provider is mounted: that provider defers SSRF
-    # protection and the model would choose the request target. Search is a full
-    # auxiliary model request with server-side retrieval, so this shipped DeepSeek
-    # route gets 60s while the provider-neutral tool default remains 30s.
+    # protection and the model would choose the request target.
     - id: web
       name: '@deepseek-ai/dsh-web'
       config:
-        searchProvider: deepseek-official
-
-    - id: web-search-deepseek
-      name: '@deepseek-ai/dsh-web-search-deepseek'
-      config:
-        apiKeyEnv: DEEPSEEK_API_KEY
+        searchProvider: ''
 
     - id: tool-web
       name: '@deepseek-ai/dsh-tool-web'
@@ -442,10 +403,3 @@
     # overlay can pin another workspace.
     - id: fs-sandbox
       name: '@deepseek-ai/dsh-fs-sandbox'
-
-    # The native DeepSeek adapter. No key or endpoint is inlined: both resolve per
-    # request from the `llm-deepseek:` settings section over this entry, with the
-    # key coming from the credential store below. Thinking defaults are a deployment
-    # choice.
-    - id: llm-deepseek
-      name: '@deepseek-ai/dsh-llm-deepseek'

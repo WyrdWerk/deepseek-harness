@@ -15,5 +15,5 @@
               maxInputBytes: 4096
               maxOutputTokens: 32
               timeoutMs: 5000
-              provider: deepseek-official
-              model: deepseek-v4-flash
+              provider: openai
+              model: gpt-4o

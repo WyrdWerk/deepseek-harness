@@ -1,12 +1,14 @@
-/** Pure first-run readiness projection over the shared Models join. */
+/** Pure page-projection and usability predicates over the shared Models join. */
 import { describe, expect, it } from 'vitest'
 import type { CredentialView } from '@deepseek-ai/dsh-api-remotes/client'
-import type { ModelsSettingsState, ProviderRow } from '../src/client/store.ts'
-import { onboardingReadiness, providerUsable } from '../src/client/store.ts'
+import type { ProviderRow } from '../src/client/store.ts'
+import { providerUsable } from '../src/client/store.ts'
+import { pageVisibleProvider } from '../src/client/ModelsSection.tsx'
 
 const missingCredential: CredentialView = { configured: false, writable: true }
 
-function row(overrides: Partial<ProviderRow> = {}): ProviderRow {
+/** The official DeepSeek route the overlay hides from the page. */
+function officialRow(overrides: Partial<ProviderRow> = {}): ProviderRow {
   return {
     entry: {
       provider: 'deepseek-official',
@@ -23,8 +25,8 @@ function row(overrides: Partial<ProviderRow> = {}): ProviderRow {
   }
 }
 
-/** A second provider the user configured themselves. */
-function otherRow(overrides: Partial<ProviderRow> = {}): ProviderRow {
+/** A pi-ai route the user configured themselves. */
+function piAiRow(overrides: Partial<ProviderRow> = {}): ProviderRow {
   return {
     entry: {
       provider: 'hfai',
@@ -41,90 +43,41 @@ function otherRow(overrides: Partial<ProviderRow> = {}): ProviderRow {
   }
 }
 
-function state(overrides: Partial<ModelsSettingsState> = {}): ModelsSettingsState {
-  return {
-    status: 'ready',
-    error: null,
-    credentialError: null,
-    writable: true,
-    rows: [row()],
-    namespaces: new Map(),
-    ...overrides,
-  }
-}
 
 describe('providerUsable', () => {
   it('requires a registered route and a stored key for every named reference', () => {
-    expect(providerUsable(otherRow())).toBe(true)
-    expect(providerUsable(otherRow({ entry: { ...otherRow().entry, active: false } }))).toBe(false)
-    expect(providerUsable(otherRow({ credential: missingCredential }))).toBe(false)
-    expect(providerUsable(otherRow({ credential: undefined }))).toBe(false)
+    expect(providerUsable(officialRow({ credential: undefined }))).toBe(false)
+    expect(providerUsable(officialRow({ credential: missingCredential }))).toBe(false)
+    expect(providerUsable(officialRow({
+      credential: { configured: true, source: 'file', writable: true },
+    }))).toBe(true)
   })
 
   it('treats a reference-free registered route as provider-native authentication', () => {
-    expect(providerUsable(otherRow({ apiKeyEnv: undefined, credential: undefined }))).toBe(true)
+    expect(providerUsable(piAiRow({ apiKeyEnv: undefined, credential: undefined }))).toBe(true)
   })
 })
 
-describe('onboardingReadiness', () => {
-  it('waits for the first join and skips onboarding when the adapter directory entry is absent', () => {
-    expect(onboardingReadiness(state({ status: 'idle', rows: [] }))).toEqual({ kind: 'loading' })
-    expect(onboardingReadiness(state({ status: 'loading', rows: [] }))).toEqual({ kind: 'loading' })
-    expect(onboardingReadiness(state({ rows: [] }))).toEqual({ kind: 'adapter-absent' })
-    expect(onboardingReadiness(state({
-      rows: [row({
-        entry: {
-          ...row().entry,
-          settingsNs: '',
-        },
-      })],
-    }))).toEqual({ kind: 'adapter-absent' })
+describe('pageVisibleProvider', () => {
+  it('hides official DeepSeek rows so the page cannot open an inert editor', () => {
+    expect(pageVisibleProvider(officialRow())).toBe(false)
   })
 
-  it('reports a missing writable effective credential', () => {
-    expect(onboardingReadiness(state())).toEqual({ kind: 'credential-missing' })
+  it('hides any row whose settings namespace is llm-deepseek even under a different provider id', () => {
+    expect(pageVisibleProvider({
+      ...officialRow(),
+      entry: { ...officialRow().entry, provider: 'renamed', settingsNs: 'llm-deepseek' },
+    })).toBe(false)
   })
 
-  it('ends onboarding once any other registered provider can serve requests', () => {
-    expect(onboardingReadiness(state({ rows: [row(), otherRow()] }))).toEqual({ kind: 'provider-ready' })
-    // A provider the user cannot reach yet leaves the prompt in place.
-    expect(onboardingReadiness(state({
-      rows: [row(), otherRow({ credential: missingCredential })],
-    }))).toEqual({ kind: 'credential-missing' })
+  it('shows pi-ai rows so first-run setup is never suppressed by hidden official rows', () => {
+    expect(pageVisibleProvider(piAiRow())).toBe(true)
   })
 
-  it('accepts file and process-environment credentials without prompting', () => {
-    expect(onboardingReadiness(state({
-      rows: [row({ credential: { configured: true, source: 'file', writable: true } })],
-    }))).toEqual({ kind: 'provider-ready' })
-    expect(onboardingReadiness(state({
-      rows: [row({ credential: { configured: true, source: 'env', writable: false } })],
-    }))).toEqual({ kind: 'provider-ready' })
-  })
-
-  it('turns missing capabilities into diagnostics that never block the product', () => {
-    expect(onboardingReadiness(state({ status: 'error', error: 'settings down' }))).toEqual({
-      kind: 'unavailable',
-      reason: 'load-failed',
-    })
-    expect(onboardingReadiness(state({
-      rows: [row({ entry: { ...row().entry, active: false } })],
-    }))).toEqual({ kind: 'unavailable', reason: 'provider-inactive' })
-    expect(onboardingReadiness(state({
-      credentialError: 'credentials service is absent',
-    }))).toEqual({
-      kind: 'unavailable',
-      reason: 'credentials-unavailable',
-    })
-    expect(onboardingReadiness(state({
-      rows: [row({ credential: undefined })],
-    }))).toEqual({ kind: 'unavailable', reason: 'credentials-unavailable' })
-    expect(onboardingReadiness(state({
-      rows: [row({ credential: { configured: false, writable: false } })],
-    }))).toEqual({ kind: 'unavailable', reason: 'credential-read-only' })
-    expect(onboardingReadiness(state({ writable: false }))).toEqual({
-      kind: 'unavailable',
-      reason: 'settings-read-only',
-    })
+  it('shows custom-provider rows on unknown namespaces', () => {
+    expect(pageVisibleProvider({
+      ...piAiRow(),
+      entry: { ...piAiRow().entry, provider: 'custom', settingsNs: 'llm-custom' },
+    })).toBe(true)
   })
 })

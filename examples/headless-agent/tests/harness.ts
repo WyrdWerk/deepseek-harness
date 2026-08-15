@@ -8,7 +8,7 @@ import * as BashEnvPlugin from '@deepseek-ai/dsh-shell-env'
 import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
 import * as ToolBash from '@deepseek-ai/dsh-tool-bash'
 import * as ToolTodo from '@deepseek-ai/dsh-tool-todo'
-import * as LlmDeepSeek from '@deepseek-ai/dsh-llm-deepseek'
+import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
 import TokenMeter from '@deepseek-ai/dsh-token-meter'
 import ToolResultPruner from '@deepseek-ai/dsh-compaction-tool-result-pruner'
 import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
@@ -49,7 +49,7 @@ export interface CodingHarnessOptions {
    * compaction plugin (the default suites run without it).
    */
   compact?: BasicCompactionConfig
-  /** Test-only context capacity advertised for `deepseek-v4-flash`. */
+  /** Test-only context capacity advertised for `gpt-4o`. */
   modelContextWindow?: number
 }
 
@@ -59,8 +59,10 @@ export async function codingHarness(workdir: string, options: CodingHarnessOptio
     systemPrompt: { persona: options.persona ?? '' },
   })
   await ctx.plugin(AgentLoop, { agents: [] })
-  await ctx.plugin(LlmDeepSeek, options.modelContextWindow === undefined ? {} : {
-    models: [{ id: 'deepseek-v4-flash', contextWindow: options.modelContextWindow }],
+  await ctx.plugin(LlmPiAi, {
+    providers: { openai: options.modelContextWindow === undefined ? {} : {
+      modelOverrides: { 'gpt-4o': { contextWindow: options.modelContextWindow } },
+    } },
   })
   await ctx.plugin(LocalSubprocessRuntime)
   await ctx.plugin(BashEnvPlugin)

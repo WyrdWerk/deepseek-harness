@@ -9,7 +9,6 @@
  * settings scope, which keeps them unaware of one another and of other tabs.
  */
 
-import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: the settings shell's SlotMap merge (the 'settings.section' entry)
@@ -26,10 +25,8 @@ import { ConfigurablePluginsTab } from './ConfigurablePluginsTab.tsx'
 import type { ConfigurablePluginsTabInjected } from './ConfigurablePluginsTab.tsx'
 import { PluginsSettingsSection } from './PluginsSettingsSection.tsx'
 import type { PluginsSettingsSectionInjected, PluginsSettingsTabEntry } from './PluginsSettingsSection.tsx'
-import { WebSearchCard } from './WebSearchCard.tsx'
 import { AGENT_LOOP_NS, AgentLoopCardController } from './agent-loop-card-controller.ts'
 import { SHELL_NS, BashCardController } from './bash-card-controller.ts'
-import { WEB_SEARCH_NS, WebSearchCardController } from './web-search-card-controller.ts'
 import { en, zh } from './locales.ts'
 
 export type { PluginsSettingsSectionInjected, PluginsSettingsSectionProps } from './PluginsSettingsSection.tsx'
@@ -42,7 +39,6 @@ export type {
 } from './card-form.ts'
 export type { AgentLoopCardFace, AgentLoopCardState } from './agent-loop-card-controller.ts'
 export type { BashCardFace, BashCardState } from './bash-card-controller.ts'
-export type { WebSearchCardFace, WebSearchCardState } from './web-search-card-controller.ts'
 
 /** Dictionary namespace owned by this plugin. */
 const NS = 'settings.plugins'
@@ -55,21 +51,12 @@ export const inject = ['slots', 'locale', 'connection', 'remote', 'settingsScope
  * @param ctx - the browser plugin context.
  */
 export function apply(ctx: ClientContext): void {
-  const { api } = ctx.get('connection') as ConnectionHandle
   const t = ctx.locale.bind(NS)
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-plugins: section dictionaries')
 
   const bash = new BashCardController(ctx.settingsScope.bind({ namespace: SHELL_NS }))
   const agentLoop = new AgentLoopCardController(ctx.settingsScope.bind({ namespace: AGENT_LOOP_NS }))
-  const webSearch = new WebSearchCardController(ctx.settingsScope.bind({ namespace: WEB_SEARCH_NS }), api)
 
-  // The credential a card reports is not part of any settings section, so its
-  // scope publishes nothing when one is written. This is the only signal that
-  // a key written on another surface reached the Host.
-  ctx.effect(
-    () => ctx.remote.$on('credentials/updated', (ref) => { webSearch.refreshCredential(ref) }),
-    'ui-settings-plugins: credential invalidations',
-  )
 
   let tabsVersion = -1
   let tabsRevision = -1
@@ -147,12 +134,5 @@ export function apply(ctx: ClientContext): void {
       locale: NS,
       inject: () => agentLoop.inject(),
     }, AgentLoopCard)
-    yield ctx.slots.register({
-      name: 'settings.plugin.item',
-      id: 'web-search',
-      order: 20,
-      locale: NS,
-      inject: () => webSearch.inject(),
-    }, WebSearchCard)
   })
 }

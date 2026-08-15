@@ -7,6 +7,7 @@ import { PassThrough, Writable } from 'node:stream'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import * as agentCore from '@deepseek-ai/dsh-agent-spine-demo'
+import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
 import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import * as jsonrpc from '../src/index.ts'
 
@@ -57,12 +58,24 @@ async function settle(): Promise<void> {
 /** Mount the real plugin on a minimal harness with in-memory stdio and exit. */
 async function mountPlugin(
   storageDir: string,
-  options: { writeDelayMs?: number; failFlush?: boolean } = {},
+  options: { writeDelayMs?: number; failFlush?: boolean; llmBaseURL?: string } = {},
 ): Promise<ApplyHarness> {
   const ctx = new Context()
   await ctx.plugin(agentCore, { workspaceContext: false })
+  if (options.llmBaseURL !== undefined) {
+    vi.stubEnv('OPENAI_API_KEY', 'test-key')
+    await ctx.plugin(LlmPiAi, {
+      providers: {
+        openai: {
+          apiKeyEnv: 'OPENAI_API_KEY',
+          api: 'openai-completions',
+          baseURL: options.llmBaseURL,
+          models: [{ id: 'dsagent-model', name: 'dsagent-model', contextWindow: 8192, maxTokens: 4096 }],
+        },
+      },
+    })
+  }
   await ctx.plugin(JsonlSessionPersistence, { root: storageDir })
-  await new Promise(resolve => setTimeout(resolve, 50))
 
   const input = new PassThrough()
   const events: WireEvent[] = []
@@ -152,10 +165,10 @@ async function mockCompletionServer(): Promise<{ url: string; requests: unknown[
 describe('dsh-sdk-jsonrpc-server plugin apply', () => {
   it('serves initialize over the injected stdio pair', async () => {
     const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-apply-init-'))
-    vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
+    vi.stubEnv('OPENAI_API_KEY', 'test-key')
     const harness = await mountPlugin(storageDir)
     try {
-      harness.send({ jsonrpc: '2.0', id: 'init-1', method: 'initialize', params: { cwd: storageDir, provider: 'deepseek-official', model: 'apply-model' } })
+      harness.send({ jsonrpc: '2.0', id: 'init-1', method: 'initialize', params: { cwd: storageDir, provider: 'openai', model: 'apply-model' } })
 
       const response = await harness.waitForFrame(frame => frame.id === 'init-1', 'initialize response')
       expect(response).toEqual({
@@ -173,11 +186,9 @@ describe('dsh-sdk-jsonrpc-server plugin apply', () => {
   it('drives a session/prompt turn end-to-end and forwards session notifications as output frames', async () => {
     const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-apply-prompt-'))
     const llmServer = await mockCompletionServer()
-    vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
-    vi.stubEnv('DEEPSEEK_BASE_URL', llmServer.url)
-    const harness = await mountPlugin(storageDir)
+    const harness = await mountPlugin(storageDir, { llmBaseURL: llmServer.url })
     try {
-      harness.send({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { cwd: storageDir, provider: 'deepseek-official', model: 'dsagent-model' } })
+      harness.send({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { cwd: storageDir, provider: 'openai', model: 'dsagent-model' } })
       await harness.waitForFrame(frame => frame.id === 1, 'initialize response')
 
       harness.send({
@@ -246,7 +257,7 @@ describe('dsh-sdk-jsonrpc-server plugin apply', () => {
       expect(harness.events.filter(event => event.kind === 'root-disposed')).toHaveLength(1)
 
       const before = harness.frames().length
-      harness.send({ jsonrpc: '2.0', id: 'after-exit', method: 'initialize', params: { cwd: storageDir, provider: 'deepseek-official', model: 'x' } })
+      harness.send({ jsonrpc: '2.0', id: 'after-exit', method: 'initialize', params: { cwd: storageDir, provider: 'openai', model: 'x' } })
       await settle()
       expect(harness.frames().length).toBe(before)
     } finally {
@@ -268,7 +279,7 @@ describe('dsh-sdk-jsonrpc-server plugin apply', () => {
       expect(harness.outputErrors.map(error => error.message)).toEqual(['flush callback failed'])
 
       const before = harness.frames().length
-      harness.send({ jsonrpc: '2.0', id: 'after-flush-failure', method: 'initialize', params: { cwd: storageDir, provider: 'deepseek-official', model: 'x' } })
+      harness.send({ jsonrpc: '2.0', id: 'after-flush-failure', method: 'initialize', params: { cwd: storageDir, provider: 'openai', model: 'x' } })
       await settle()
       expect(harness.frames().length).toBe(before)
     } finally {
@@ -293,7 +304,7 @@ describe('dsh-sdk-jsonrpc-server plugin apply', () => {
       expect(harness.events.some(event => event.kind === 'root-disposed')).toBe(false)
 
       const before = harness.frames().length
-      harness.send({ jsonrpc: '2.0', id: 'probe-2', method: 'initialize', params: { cwd: storageDir, provider: 'deepseek-official', model: 'x' } })
+      harness.send({ jsonrpc: '2.0', id: 'probe-2', method: 'initialize', params: { cwd: storageDir, provider: 'openai', model: 'x' } })
       await settle()
       expect(harness.frames().length).toBe(before)
       expect(harness.exits()).toEqual([])

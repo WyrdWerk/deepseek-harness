@@ -9,7 +9,7 @@
         config:
           agents:
             - id: main
-              provider: deepseek-official
+              provider: openai
               model: deepseek-v4-pro
               cwd: !!js process.cwd()
           workspaceContext:

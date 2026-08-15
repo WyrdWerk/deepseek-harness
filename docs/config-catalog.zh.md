@@ -1719,52 +1719,6 @@ export interface Config {
 
 来源：[`packages/context/session-reference/src/config.ts:11`](../packages/context/session-reference/src/config.ts)
 
-<a id="deepseek-aidsh-session-telemetry-otel"></a>
-
-## `@deepseek-ai/dsh-session-telemetry-otel`
-
-需要：`sessions`
-
-```ts config-catalog
-/**
- * Plugin configuration: one sharing policy, two verbatim SDK option objects,
- * and one DSH-owned shutdown bound. Uploading modes validate their endpoint
- * and shutdown deadline at plugin load; `DISABLED` reads neither.
- */
-export interface Config {
-  /** Sharing policy; defaults to local-only `DISABLED` behavior. */
-  mode?: SessionTelemetryMode
-  /**
-   * Passed verbatim to the SDK's OTLP/HTTP log exporter — the complete
-   * `OTLPExporterNodeConfigBase` shape (`headers`, `timeoutMillis`,
-   * `compression`, `keepAlive`, …), owned and documented by the SDK. `url`
-   * is the one field this package requires and validates itself.
-   */
-  exporter?: OTLPExporterNodeConfigBase & {
-    /** Full logs endpoint (e.g. `https://collector.example.com/v1/logs`). Required outside `DISABLED`; validated at load. */
-    url?: string
-  }
-  /**
-   * Passed verbatim to `BatchLogRecordProcessor` (minus the exporter slot,
-   * which this plugin fills); the SDK owns and documents these knobs.
-   */
-  processor?: Omit<BatchLogRecordProcessorOptions, 'exporter'>
-  /** Maximum time spent awaiting the SDK provider's complete shutdown path. */
-  shutdownTimeoutMillis?: number
-}
-
-/** Session-sharing policy selected by {@link Config.mode}. */
-export enum SessionTelemetryMode {
-  FULL = 'FULL',
-  FEEDBACK_ONLY = 'FEEDBACK_ONLY',
-  DISABLED = 'DISABLED',
-}
-```
-
-依赖：`BatchLogRecordProcessorOptions`（`@opentelemetry/sdk-logs`）· `OTLPExporterNodeConfigBase`（`@opentelemetry/otlp-exporter-base`）
-
-来源：[`packages/session/session-telemetry-otel/src/index.ts:91`](../packages/session/session-telemetry-otel/src/index.ts)
-
 <a id="deepseek-aidsh-session-title"></a>
 
 ## `@deepseek-ai/dsh-session-title`

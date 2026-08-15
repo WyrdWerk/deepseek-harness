@@ -73,7 +73,7 @@ describe('ui-settings-plugins apply', () => {
     await ctx.plugin({ inject: [...inject], apply }).await()
 
     expect(slots.entries('settings.plugin.item').map(entry => entry.options.id))
-      .toEqual(['bash', 'agent-loop', 'web-search'])
+      .toEqual(['bash', 'agent-loop'])
   })
 
   it('injects a live tab projection, a card count, and one business face per card', async () => {
@@ -99,7 +99,7 @@ describe('ui-settings-plugins apply', () => {
     unsubscribe()
 
     const tab = slots.entries('settings.plugins.tab')[0]!
-    expect((tab.inject as unknown as () => ConfigurablePluginsTabInjected)()).toEqual({ cardCount: 3 })
+    expect((tab.inject as unknown as () => ConfigurablePluginsTabInjected)()).toEqual({ cardCount: 2 })
     for (const entry of slots.entries('settings.plugin.item')) {
       const face = (entry as { inject?: () => unknown }).inject?.() as { hooks: Record<string, unknown> }
       // Each card injects exactly one snapshot store plus its own actions.
@@ -107,32 +107,6 @@ describe('ui-settings-plugins apply', () => {
     }
   })
 
-  it('re-reads the credential when the Host reports the watched reference changed', async () => {
-    const { ctx, slots, describeCredentials } = await bench()
-    declareRoot(slots)
-    await ctx.plugin({ inject: [...inject], apply }).await()
-    await vi.waitFor(() => { expect(describeCredentials).toHaveBeenCalled() })
-    describeCredentials.mockClear()
-
-    // A key written on another surface changes no settings section, so this
-    // event is the only thing that reaches the card.
-    ctx.remote.$dispatch('credentials/updated', ['DEEPSEEK_API_KEY'])
-
-    await vi.waitFor(() => { expect(describeCredentials).toHaveBeenCalledTimes(1) })
-  })
-
-  it('ignores a credential change for a reference no card watches', async () => {
-    const { ctx, slots, describeCredentials } = await bench()
-    declareRoot(slots)
-    await ctx.plugin({ inject: [...inject], apply }).await()
-    await vi.waitFor(() => { expect(describeCredentials).toHaveBeenCalled() })
-    describeCredentials.mockClear()
-
-    ctx.remote.$dispatch('credentials/updated', ['SOME_OTHER_KEY'])
-    await Promise.resolve()
-
-    expect(describeCredentials).not.toHaveBeenCalled()
-  })
 
   it('registers into a declaration that arrives after apply', async () => {
     const { ctx, slots } = await bench()
@@ -148,7 +122,7 @@ describe('ui-settings-plugins apply', () => {
     declareRoot(slots)
     const fiber = ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
-    expect(slots.entries('settings.plugin.item')).toHaveLength(3)
+    expect(slots.entries('settings.plugin.item')).toHaveLength(2)
 
     await fiber.dispose()
 

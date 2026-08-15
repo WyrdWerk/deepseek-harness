@@ -1,7 +1,7 @@
 # Keyless replay includes the live `cordis.yml`, disables the key-requiring
 # DeepSeek adapter, and inserts `llm-replay` to serve recorded JSONL without a
 # key or network; every other entry remains shared. The replay provider
-# catalog claims the `deepseek-official` provider so the SDK server's `initialize`
+# catalog claims the `openai` provider so the SDK server's `initialize`
 # finds it owned and never mounts the real-adapter fallback. The SDK snapshot
 # suite passes this path explicitly through `DSH_CORDIS_CONFIG` (the
 # jsonrpc-demo bin performs no DSH_SNAPSHOT config swap of its own), and
@@ -14,15 +14,15 @@
     patches:
       # `name` asserts the target: a mismatch skips the patch and warns only
       # when a logger exists.
-      - id: llm-deepseek
-        name: '@deepseek-ai/dsh-llm-deepseek'
+      - id: llm-pi-ai
+        name: '@deepseek-ai/dsh-llm-pi-ai'
         disabled: true
       - insert:
           - id: llm-replay
             name: '@deepseek-ai/dsh-llm-replay'
             config:
               providers:
-                - id: deepseek-official
+                - id: openai
                   name: DeepSeek
                   models:
-                    - id: deepseek-v4-flash
+                    - id: gpt-4o

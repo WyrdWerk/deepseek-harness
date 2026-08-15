@@ -6,7 +6,7 @@
 // disclosure — as a persistent command row. The scaffold mounts the shipped
 // telemetry row in FULL mode against a local dead endpoint (no record leaves
 // the process), so the golden pins the shipped default sentence
-// `Session sharing is enabled.`; the per-status sentences are pinned by the
+// `Session sharing is not configured.`; the per-status sentences are pinned by the
 // package and OTel unit tests.
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
@@ -26,7 +26,7 @@ const ACK_EXPECTED = join(SNAPSHOT_DIR, 'ack.expected.md')
 const MODE = webSnapshotMode()
 // Discard port: loopback listener never binds, so FULL telemetry discloses
 // the shipped default policy without any record reaching a collector.
-const TELEMETRY_URL = 'http://127.0.0.1:9/v1/logs'
+// The OTel telemetry backend is not shipped in this overlay.
 
 const PROMPT = 'Reply with the single word LIGHTHOUSE and stop.'
 
@@ -38,7 +38,7 @@ describe('web e2e: /feedback command acknowledgement', () => {
 
   beforeAll(async () => {
     scaffold = await launchWebScaffold({
-      telemetryUrl: TELEMETRY_URL,
+
       ...(MODE === 'record' ? {} : { replayFixture: FIXTURE }),
     })
     browser = await chromium.launch()
@@ -87,7 +87,7 @@ describe('web e2e: /feedback command acknowledgement', () => {
     // The command plane settles without a model turn: the ack row names the
     // recorded session and the mounted FULL backend's disclosure.
     await page.getByText(/Feedback recorded for session/).waitFor({ timeout: 10_000 })
-    expect(await page.getByText(/Session sharing is enabled/).count()).toBe(1)
+    expect(await page.getByText(/Session sharing is not configured/).count()).toBe(1)
     const snapshot = await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(ACK_EXPECTED, snapshot, MODE)
 

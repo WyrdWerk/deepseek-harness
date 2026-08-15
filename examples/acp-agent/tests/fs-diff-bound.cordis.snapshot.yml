@@ -1,20 +1,20 @@
 # Keyless replay counterpart to fs-diff-bound.cordis.yml. Replay patches apply
 # directly against the live cordis.yml because include patches cannot target
 # entries behind a nested include; the acp-agent restatement keeps the recorded
-# deepseek-v4-flash model and raw JSONL persistence for the harness's harvest.
+# gpt-4o model and raw JSONL persistence for the harness's harvest.
 - id: base
   name: '@deepseek-ai/cordis-plugin-include'
   config:
     path: ../cordis.yml
     patches:
-      - id: llm-deepseek
-        name: '@deepseek-ai/dsh-llm-deepseek'
+      - id: llm-pi-ai
+        name: '@deepseek-ai/dsh-llm-pi-ai'
         disabled: true
       - id: acp-agent
         name: '@deepseek-ai/dsh-acp-demo'
         config:
-          provider: deepseek-official
-          model: deepseek-v4-flash
+          provider: openai
+          model: gpt-4o
           persistenceRoot: !!js process.env.DSH_SNAPSHOT_SESSIONS_ROOT ?? './.sessions'
           persistenceCompression: none
           workspaceContext:
@@ -33,12 +33,12 @@
             name: '@deepseek-ai/dsh-llm-replay'
             config:
               providers:
-                - id: deepseek-official
+                - id: openai
                   name: DeepSeek
                   models:
                     # Capability parity with the live adapter so replay
                     # reconstructs the freshly recorded request header.
-                    - id: deepseek-v4-flash
+                    - id: gpt-4o
                       contextWindow: 1000000
                       defaultMaxTokens: 256000
                       reasoningEfforts: ['off', 'high', 'max']

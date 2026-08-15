@@ -131,6 +131,16 @@ export function needsSetup(row: ProviderRow, anyUsable: boolean): boolean {
   return row.credential?.configured !== true
 }
 
+/**
+ * Whether a joined row may appear on the Models page. Official DeepSeek
+ * routes stay in the store join; this page does not project them as
+ * configured or addable cards.
+ */
+export function pageVisibleProvider(row: ProviderRow): boolean {
+  return row.entry.provider !== 'deepseek-official'
+    && row.entry.settingsNs !== 'llm-deepseek'
+}
+
 function targetOf(row: ProviderRow): EditorTarget {
   const managedRef = deriveKeyRef(row.entry.provider)
   const credentialRef = row.apiKeyEnv === managedRef
@@ -259,11 +269,13 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
     ? savedTarget
     : { provider: savedRow.entry.provider, displayName: savedRow.entry.displayName }
 
-  // One fact decides both first-run postures on this page and the onboarding
-  // step: whether the user already has a provider to talk to.
-  const anyUsable = state.rows.some(providerUsable)
-  const configured = state.rows.filter(row => row.configured)
-  const addable = state.rows.filter(row => !row.configured && row.entry.settingsNs !== '')
+  // One fact decides first-run posture: whether any joined row can serve.
+  // Configured/addable lists hide official DeepSeek so this page cannot
+  // open an inert editor after layoutOf dropped that family.
+  const visibleRows = state.rows.filter(pageVisibleProvider)
+  const anyUsable = visibleRows.some(providerUsable)
+  const configured = visibleRows.filter(row => row.configured)
+  const addable = visibleRows.filter(row => !row.configured && row.entry.settingsNs !== '')
   const addTarget = adding ? editing : undefined
   const addNamespace = addTarget === undefined ? undefined : state.namespaces.get(addTarget.settingsNs)
   // Hand-declared routes live in the pi-ai namespace, which is also the only

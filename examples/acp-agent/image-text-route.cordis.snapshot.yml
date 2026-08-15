@@ -7,14 +7,14 @@
   config:
     path: ./cordis.yml
     patches:
-      - id: llm-deepseek
-        name: '@deepseek-ai/dsh-llm-deepseek'
+      - id: llm-pi-ai
+        name: '@deepseek-ai/dsh-llm-pi-ai'
         disabled: true
       - id: acp-agent
         name: '@deepseek-ai/dsh-acp-demo'
         config:
-          provider: deepseek-official
-          model: deepseek-v4-flash
+          provider: openai
+          model: gpt-4o
           persistenceRoot: !!js process.env.DSH_SNAPSHOT_SESSIONS_ROOT ?? './.sessions'
           persistenceCompression: none
           workspaceContext:
@@ -30,10 +30,10 @@
             name: '@deepseek-ai/dsh-llm-replay'
             config:
               providers:
-                - id: deepseek-official
+                - id: openai
                   name: DeepSeek
                   models:
-                    - id: deepseek-v4-flash
+                    - id: gpt-4o
                       inputModalities: [text]
                     - id: deepseek-v4-pro
                       inputModalities: [text]

@@ -37,7 +37,7 @@ Replay keys every call by its calling session id (`GenerateOptions.sessionId`, s
   name: '@deepseek-ai/dsh-llm-replay'
   config:
     providers:
-      - id: deepseek-official
+      - id: openai
         name: DeepSeek
         retryPolicy:
           mode: normal

@@ -13,7 +13,7 @@ import { DeepSeekHarness } from '@deepseek-ai/dsh-sdk-client'
 
 await using harness = new DeepSeekHarness({
   launch: { command: 'node', args: ['lib/bin.js', 'cordis.yml'] },
-  provider: 'deepseek-official',
+  provider: 'openai',
   model: 'deepseek-v4-flash',
   maxTokens: 49_152,
 })

@@ -2,7 +2,7 @@ import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import LlmRuntime from '@deepseek-ai/dsh-llm'
-import * as LlmDeepSeek from '@deepseek-ai/dsh-llm-deepseek'
+import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import SessionTitleService from '@deepseek-ai/dsh-session-title'
 import * as FirstMessageTitleProvider from '@deepseek-ai/dsh-session-title-first-prompt-llm'
@@ -13,12 +13,12 @@ afterEach(async () => {
   await Promise.all(contexts.splice(0).map(ctx => ctx.fiber.dispose()))
 })
 
-describe.skipIf(!process.env.DEEPSEEK_API_KEY)('first-prompt title provider with real DeepSeek API', () => {
+describe.skipIf(!process.env.OPENAI_API_KEY)('first-prompt title provider with real OpenAI API', () => {
   it('replaces the fallback with a short model title', async () => {
     const ctx = new Context()
     contexts.push(ctx)
     await ctx.plugin(LlmRuntime)
-    await ctx.plugin(LlmDeepSeek, { thinking: 'disabled' })
+    await ctx.plugin(LlmPiAi, { providers: { openai: { apiKeyEnv: 'OPENAI_API_KEY' } } })
     await ctx.plugin(SessionStore)
     await ctx.plugin(SessionTitleService, {
       fallbackMaxWords: 5,
@@ -31,8 +31,8 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('first-prompt title provider with
       maxInputBytes: 4_096,
       maxOutputTokens: 64,
       timeoutMs: 60_000,
-      provider: 'deepseek-official',
-      model: 'deepseek-v4-flash',
+      provider: 'openai',
+      model: 'gpt-4o',
     })
     const session = ctx.sessions.create(SessionId('real-title-provider'))
     session.append('turn/start', {
@@ -50,7 +50,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('first-prompt title provider with
       source: {
         kind: 'provider',
         provider: 'session-title-first-prompt-llm',
-        model: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+        model: { provider: 'openai', model: 'gpt-4o' },
       },
     })
     expect(title?.title.length).toBeGreaterThan(0)

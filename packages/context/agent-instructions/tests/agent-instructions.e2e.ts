@@ -11,7 +11,7 @@ import ToolRuntime from '@deepseek-ai/dsh-tools'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import * as LlmDeepSeek from '@deepseek-ai/dsh-llm-deepseek'
+import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
 import * as WorkspaceContext from '@deepseek-ai/dsh-agent-instructions'
 import { candidateScopeKey } from '../src/render.ts'
 import LocalFileSystem from '@deepseek-ai/dsh-fs-local'
@@ -46,11 +46,11 @@ async function harness(): Promise<{ ctx: Context; agent: Agent }> {
   await ctx.plugin(ToolFs)
   await ctx.plugin(WorkspaceContext, { maxBytes: 65536 })
   await ctx.plugin(AgentLoop, { agents: [] })
-  await ctx.plugin(LlmDeepSeek, { models: [{ id: 'deepseek-v4-flash' }] })
+  await ctx.plugin(LlmPiAi, { providers: { openai: { apiKeyEnv: 'OPENAI_API_KEY' } } })
   const handle = await ctx.agents.create({
     sessionId: SessionId('workspace-context-e2e-session'),
     meta: { cwd: workdir },
-    agentOptions: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+    agentOptions: { provider: 'openai', model: 'gpt-4o' },
   })
   return { ctx, agent: handle.agent }
 }
@@ -74,8 +74,7 @@ function finalText(events: SessionEvent[]): string {
     .map(block => block.text)
     .join('')
 }
-
-describe.skipIf(!process.env.DEEPSEEK_API_KEY)('workspace context e2e: real model sees AGENTS.md baseline', () => {
+describe.skipIf(!process.env.OPENAI_API_KEY)('workspace context e2e: real model sees AGENTS.md baseline', () => {
   it('obeys a probe instruction loaded from the workspace', async () => {
     const live = await harness()
 
@@ -101,7 +100,6 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('workspace context e2e: real mode
     const live = await harness()
     await writeFile(join(workdir!, 'trigger.txt'), 'This file triggers workspace instruction reconciliation.\n')
     live.agent.followup(createUserMessage({ content: [{ type: 'text', text: 'Workspace context handshake?' }], source: { kind: 'user' } }))
-    await waitForIdle(live.ctx, live.agent)
     await writeFile(join(workdir!, 'AGENTS.md'), `The old workspace handshake no longer applies. If the user asks for the updated workspace context handshake, reply with exactly this string and nothing else: ${UPDATED_PROBE}.\n`)
 
     live.agent.followup(createUserMessage({ content: [{ type: 'text', text: 'You must use the read tool to inspect trigger.txt. After reading it, answer: updated workspace context handshake?' }], source: { kind: 'user' } }))

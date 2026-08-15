@@ -13,12 +13,16 @@
     workspaceContext:
       maxBytes: 65536
 
-# Stock DeepSeek adapters. The adapter resolves DEEPSEEK_API_KEY through the
-# credential seam and, with no provider mounted here, from the launching
-# environment; DEEPSEEK_BASE_URL follows the same environment ladder. Neither
-# is inlined, so this file names no secret and no route.
-- id: llm-deepseek
-  name: '@deepseek-ai/dsh-llm-deepseek'
+# The pi-ai adapter with the `openai` catalog route. The key resolves per
+# request through the OPENAI_API_KEY apiKeyEnv reference from the credential
+# seam and, with no provider mounted here, from the launching environment.
+# No secret or route is inlined in this file.
+- id: llm-pi-ai
+  name: '@deepseek-ai/dsh-llm-pi-ai'
+  config:
+    providers:
+      openai:
+        apiKeyEnv: OPENAI_API_KEY
 
 # JSONL persistence; $DSH_SESSION_ROOT wins over ./.sessions in the process cwd.
 - id: sessions

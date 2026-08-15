@@ -6,7 +6,7 @@ import { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import * as LlmDeepSeek from '@deepseek-ai/dsh-llm-deepseek'
+import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
 import type { MockLlmBehavior, MockLlmServer } from '@deepseek-ai/dsh-llm-mock-server'
 import { startMockLlmServer } from '@deepseek-ai/dsh-llm-mock-server'
 import { SessionId } from '@deepseek-ai/dsh-session'
@@ -34,19 +34,25 @@ async function harness(
   baseURL: string,
   options: { streamIdleTimeoutMs?: number; initialDelayMs?: number } = {},
 ): Promise<Context> {
-  vi.stubEnv('DEEPSEEK_API_KEY', 'mock-key')
+  vi.stubEnv('OPENAI_API_KEY', 'mock-key')
   const ctx = new Context()
   await mountAgentLoopTestDependencies(ctx)
-  await ctx.plugin(LlmDeepSeek, {
-    baseURL,
-    streamIdleTimeoutMs: options.streamIdleTimeoutMs ?? 1_000,
-    retryPolicy: {
-      mode: 'normal',
-      maxRetries: 2,
-      backoff: {
-        initialDelayMs: options.initialDelayMs ?? 10,
-        maxDelayMs: options.initialDelayMs ?? 10,
-        jitterRatio: 0,
+  await ctx.plugin(LlmPiAi, {
+    providers: {
+      openai: {
+        apiKeyEnv: 'OPENAI_API_KEY',
+        baseURL,
+        models: [{ id: 'mock-model' }],
+        streamIdleTimeoutMs: options.streamIdleTimeoutMs ?? 1_000,
+        retryPolicy: {
+          mode: 'normal',
+          maxRetries: 2,
+          backoff: {
+            initialDelayMs: options.initialDelayMs ?? 10,
+            maxDelayMs: options.initialDelayMs ?? 10,
+            jitterRatio: 0,
+          },
+        },
       },
     },
   })
@@ -82,12 +88,12 @@ async function unusedPort(): Promise<number> {
   return port
 }
 
-describe('bounded retry through the real DeepSeek HTTP/SSE adapter', () => {
+describe('bounded retry through the real pi-ai HTTP/SSE adapter', () => {
   it('recovers from a true refused connection after the endpoint starts during backoff', async () => {
     const port = await unusedPort()
     context = await harness(`http://127.0.0.1:${port}`, { initialDelayMs: 100 })
     const agent = context.agentLoop.create(SessionId('wire-refused'), {
-      provider: 'deepseek-official',
+      provider: 'openai',
       model: 'mock-model',
     })
     let recoveryServer: Promise<MockLlmServer> | undefined
@@ -122,7 +128,7 @@ describe('bounded retry through the real DeepSeek HTTP/SSE adapter', () => {
     })
     context = await harness(server.baseURL)
     const agent = context.agentLoop.create(SessionId(`wire-${behavior}`), {
-      provider: 'deepseek-official',
+      provider: 'openai',
       model: 'mock-model',
     })
 
@@ -151,7 +157,7 @@ describe('bounded retry through the real DeepSeek HTTP/SSE adapter', () => {
     })
     context = await harness(server.baseURL)
     const agent = context.agentLoop.create(SessionId('wire-empty'), {
-      provider: 'deepseek-official',
+      provider: 'openai',
       model: 'mock-model',
     })
 
@@ -171,30 +177,35 @@ describe('bounded retry through the real DeepSeek HTTP/SSE adapter', () => {
     expect(finalAssistantText(agent)).toBe('recovered from empty')
   })
 
-  it('exposes a clean partial EOF as non-default-retryable STREAM_CLOSED', async () => {
+  it('retries a clean partial EOF as TRANSPORT without committing the partial content', async () => {
     const server = await start(['partial_eof', 'success'], {
       apiKey: 'mock-key',
       partialText: 'discarded clean eof',
       chunkSize: 100,
+      successText: 'recovered from partial eof',
     })
     context = await harness(server.baseURL)
     const agent = context.agentLoop.create(SessionId('wire-partial-eof'), {
-      provider: 'deepseek-official',
+      provider: 'openai',
       model: 'mock-model',
     })
 
     await sendAndWait(context, agent)
 
-    expect(server.requests).toHaveLength(1)
+    expect(server.requests).toHaveLength(2)
+    expect(server.requests[0]?.body).toEqual(server.requests[1]?.body)
+    const retryEvent = agent.session.events.find(event => event.type === 'llm/retry')
     expect(agent.session.events.filter(event =>
-      event.type === 'assistant/chunk' && event.data.turn === 1,
+      event.type === 'assistant/chunk'
+      && retryEvent !== undefined
+      && event.seq < retryEvent.seq,
     )).toHaveLength(3)
-    expect(agent.session.events.some(event => event.type === 'assistant/message')).toBe(false)
-    expect(agent.session.events.some(event => event.type === 'llm/retry')).toBe(false)
-    expect(agent.session.events.at(-1)).toMatchObject({
-      type: 'turn/end',
-      data: { reason: { kind: 'error', error: { message: 'SSE stream ended without [DONE]', code: 'STREAM_CLOSED' } } },
-    })
+    expect(agent.session.events.filter(event => event.type === 'assistant/message')
+      .map(event => [event.data.turn, event.data.step]))
+      .toEqual([[1, 1]])
+    expect(agent.session.events.filter(event => event.type === 'llm/retry').map(event => event.data.failure.code))
+      .toEqual(['TRANSPORT'])
+    expect(finalAssistantText(agent)).toBe('recovered from partial eof')
   })
 
   it('turns a stalled body into TIMEOUT and succeeds on the next request', async () => {
@@ -206,7 +217,7 @@ describe('bounded retry through the real DeepSeek HTTP/SSE adapter', () => {
     // the stalled attempt and the mock server's immediate successful response.
     context = await harness(server.baseURL, { streamIdleTimeoutMs: 1_000 })
     const agent = context.agentLoop.create(SessionId('wire-stall'), {
-      provider: 'deepseek-official',
+      provider: 'openai',
       model: 'mock-model',
     })
 
@@ -224,7 +235,7 @@ describe('bounded retry through the real DeepSeek HTTP/SSE adapter', () => {
     })
     context = await harness(server.baseURL)
     const agent = context.agentLoop.create(SessionId('wire-exhausted'), {
-      provider: 'deepseek-official',
+      provider: 'openai',
       model: 'mock-model',
     })
 
@@ -238,8 +249,5 @@ describe('bounded retry through the real DeepSeek HTTP/SSE adapter', () => {
       type: 'turn/end',
       data: { reason: { kind: 'error', error: { code: 'TRANSPORT' } } },
     })
-    if (end?.type === 'turn/end' && end.data.reason.kind === 'error') {
-      expect(end.data.reason.error.message).toContain('DeepSeek API request to')
-    }
   })
 })

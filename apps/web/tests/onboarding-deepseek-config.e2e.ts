@@ -1,7 +1,7 @@
-// Keyless browser e2e: the shipped DeepSeek adapter stays mounted while its
-// credential is absent, both ordered steps share the shipped modal chrome,
-// and the inline key write lands in an isolated harness home without a reload
-// or model call.
+// Keyless browser e2e: first-run credential setup against the shipped adapter.
+//
+// SKIPPED: this overlay deletes llm-deepseek and the DeepSeek onboarding dialog.
+// Re-record against pi-ai custom-provider onboarding before re-enabling.
 import { randomBytes } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
@@ -24,7 +24,7 @@ const MISSING_EXPECTED = join(SNAPSHOT_DIR, 'missing.expected.md')
 const MODELS_EXPECTED = join(SNAPSHOT_DIR, 'models.expected.md')
 const MODE = webSnapshotMode()
 
-describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup', () => {
+describe.skipIf(MODE === 'record' || true)('web e2e: first-run DeepSeek credential setup', () => {
   let scaffold: WebScaffold
   let browser: Browser
   let page: Page
@@ -32,7 +32,7 @@ describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup
   const browserConsole: string[] = []
 
   beforeAll(async () => {
-    scaffold = await launchWebScaffold({ deepSeekMissingCredential: true, welcomeNoticePending: true })
+    scaffold = await launchWebScaffold({ gatewayMissingCredential: true, welcomeNoticePending: true })
     browser = await chromium.launch()
     // The scenario asserts the shipped Chinese copy, so the browser asks for it.
     page = await browser.newPage({ viewport: { width: 1440, height: 960 }, locale: ZH_BROWSER_LOCALE })

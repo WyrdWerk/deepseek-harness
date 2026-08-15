@@ -53,8 +53,6 @@ export function homePatchPath(): string {
 /** Absolute path of this dsh installation's package.json (both anchors: src/ and lib/ sit one level under apps/cli). */
 export const INSTALL_ANCHOR = fileURLToPath(new URL('../package.json', import.meta.url))
 
-/** The session-telemetry row id the DSH_TELEMETRY_DISABLED switch targets. */
-const TELEMETRY_ROW_ID = 'session-telemetry-otel'
 
 /** The empty root entry list every profile tree patches over. */
 const PROFILE_ROOT_CONFIG = `# dsh profile root — an empty entry list. The tree is composed as patches:
@@ -67,22 +65,6 @@ const PROFILE_ROOT_CONFIG = `# dsh profile root — an empty entry list. The tre
 export const PROFILE_ROOT_FILENAME = 'cordis.yml'
 
 /**
- * Resolve the telemetry opt-out switch into its boot patch. ANY non-empty
- * value (including `'0'`/`'false'`) disables: a privacy switch prefers
- * off-by-mistake over on-by-mistake. A composition without the telemetry row
- * exports nothing, so the switch is then trivially satisfied and no patch is
- * generated — custom profiles need not mount telemetry to run with the
- * switch set.
- * @param disabledEnv - the raw `DSH_TELEMETRY_DISABLED` value (`undefined` when unset).
- * @param hasRow - whether the composition carries the telemetry row.
- * @returns the disable patch, or `undefined` when no hard-disable patch is required.
- */
-export function resolveTelemetryPatch(disabledEnv: string | undefined, hasRow: boolean): PatchOptions | undefined {
-  if ((disabledEnv ?? '') === '' || !hasRow) return undefined
-  return { id: TELEMETRY_ROW_ID, disabled: true }
-}
-
-/**
  * Load a resolved profile for `name`: heal the shared module fallback, then
  * (re)write the empty root config. The root is always rewritten: the whole
  * composition is patch layers, and the vendored Loader's tree write-back (a
@@ -91,9 +73,6 @@ export function resolveTelemetryPatch(disabledEnv: string | undefined, hasRow: b
  * boot. The file exists on disk only because the Loader needs a real include
  * root to anchor `baseUrl` at the profile directory (the config dump anchors
  * on the same file, so both compose over the identical base).
- * @param name - the profile name.
- * @param userLayer - `false` skips parsing `cordis.patch.yml` (the default dump).
- * @returns the loaded profile.
  */
 export function prepareProfile(name: string, userLayer = true): Profile {
   healProfilesModuleFallback(INSTALL_ANCHOR)
@@ -165,8 +144,6 @@ function composeProfile(
       },
     })
   }
-  const telemetryPatch = resolveTelemetryPatch(process.env.DSH_TELEMETRY_DISABLED, rows.has(TELEMETRY_ROW_ID))
-  if (telemetryPatch !== undefined) composedOverlays.push(telemetryPatch)
   return { profile, bundlePatches, homePatches, overlays: composedOverlays, rows }
 }
 

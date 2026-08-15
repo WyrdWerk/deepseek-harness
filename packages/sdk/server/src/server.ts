@@ -13,7 +13,7 @@ import { carrierKeyOf, type Scoped } from '@deepseek-ai/dsh-scope'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import type SubagentRuntime from '@deepseek-ai/dsh-subagent'
 import type { SubagentRunEndInfo } from '@deepseek-ai/dsh-subagent'
-import * as LlmDeepSeek from '@deepseek-ai/dsh-llm-deepseek'
+import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
 import type {
   InitializeParams,
   InitializeResult,
@@ -52,8 +52,8 @@ function successStatus(reason: string, options: HarnessSdkJsonRpcServerOptions):
  */
 export class HarnessSdkJsonRpcServer {
   private cwd = process.cwd()
-  private provider = 'deepseek-official'
-  private model = 'deepseek-official'
+  private provider = 'openai'
+  private model = 'gpt-4o'
   private maxTokens: number | undefined
   private llmFiber: { dispose(): Promise<void> } | undefined
   private readonly sessions = new Map<string, SessionRecord>()
@@ -104,7 +104,7 @@ export class HarnessSdkJsonRpcServer {
   }
 
   /**
-   * Configure the SDK route, mounting the DeepSeek fallback only when unowned.
+   * Configure the SDK route, mounting the pi-ai openai fallback only when unowned.
    * @param params - SDK handshake parameters.
    * @returns server identity for the handshake.
    */
@@ -118,8 +118,10 @@ export class HarnessSdkJsonRpcServer {
     this.model = params.model
     this.maxTokens = params.maxTokens
     if (!this.hasAdapterFor(this.provider)) {
-      if (this.provider !== 'deepseek-official') throw new Error(`no adapter registered for provider "${this.provider}"`)
-      this.llmFiber = await this.ctx.plugin(LlmDeepSeek, {})
+      if (this.provider !== 'openai') throw new Error(`no adapter registered for provider "${this.provider}"`)
+      this.llmFiber = await this.ctx.plugin(LlmPiAi, {
+        providers: { openai: { apiKeyEnv: 'OPENAI_API_KEY' } },
+      })
     }
     return { serverInfo: { name: 'deepseek-harness-sdk-runtime', version: '0.0.1' } }
   }

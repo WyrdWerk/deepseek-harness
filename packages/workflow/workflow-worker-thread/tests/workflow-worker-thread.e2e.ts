@@ -7,7 +7,7 @@ import ToolRuntime from '@deepseek-ai/dsh-tools'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import * as LlmDeepSeek from '@deepseek-ai/dsh-llm-deepseek'
+import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
 import SubagentRuntime from '@deepseek-ai/dsh-subagent'
 import * as Spawn from '@deepseek-ai/dsh-subagent-spawn-in-process'
 import WorkerThreadWorkflowEngine from '../src/index.ts'
@@ -36,7 +36,7 @@ async function harness(): Promise<Context> {
   await built.plugin(ToolRuntime)
   await built.plugin(AgentRegistry)
   await built.plugin(AgentLoop, { agents: [] })
-  await built.plugin(LlmDeepSeek)
+  await built.plugin(LlmPiAi, { providers: { openai: { apiKeyEnv: 'OPENAI_API_KEY' } } })
   await built.plugin(SubagentRuntime)
   await built.plugin(Spawn, { providerName: 'spawn' })
   await built.plugin(WorkerThreadWorkflowEngine, { provider: 'spawn' })
@@ -59,12 +59,12 @@ const judged = await agent(
 )
 return { prose, containsFour: judged === null ? null : judged.containsFour }`
 
-describe.skipIf(!process.env.DEEPSEEK_API_KEY)('worker workflow engine with-key e2e', () => {
+describe.skipIf(!process.env.OPENAI_API_KEY)('worker workflow engine with-key e2e', () => {
   it('runs a two-phase script in a worker thread over real children, one through the structured runtime', async () => {
     ctx = await harness()
     const parentHandle = await ctx.agents.create({
       sessionId: 'wf-worker-e2e-session' as never,
-      agentOptions: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      agentOptions: { provider: 'openai', model: 'gpt-4o' },
     })
 
     const events: string[] = []
