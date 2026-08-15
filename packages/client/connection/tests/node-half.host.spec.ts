@@ -456,40 +456,35 @@ describe('connection node half over a real HTTP server', () => {
     })
   }
 
-  it('answers a declared LAN authority with 403 on every configuration method, over real HTTP', async () => {
+  it('answers a declared LAN authority with the bridge on every configuration method (fork)', async () => {
     // The fence's input is a real IncomingMessage parsed by Node from the
-    // wire, not a hand-assembled object: the Host header a LAN browser sends
-    // is exactly what decides loopback-only here, so the boundary is asserted
-    // against the parse the server actually performs.
+    // wire, not a hand-assembled object. Fork change: privileged
+    // configuration methods pass for a DECLARED authority (a tailscale-serve
+    // deployment serves the GUI from its MagicDNS name), so the empty
+    // proxy's carrier 404 proves the fence passed; an undeclared authority
+    // is still fenced off with 403 before anything runs.
     const { routes, dispose } = await mounted({ trustedHosts: ['harness.example'] })
     const { port, close } = await serve(routes)
     try {
-      // Reads are as privileged as writes: describe returns the exposed
-      // configuration, and credentials.describe probes arbitrary env-var names.
       for (const method of [
         'settings.describe', 'settings.openDocument', 'settings.update', 'settings.replace', 'settings.mutate',
         'credentials.describe', 'credentials.set', 'credentials.unset',
         'host.pickDirectory', 'host.openPath',
-        // Carries a draft credential and turns the host into a fetcher for a
-        // URL the caller picked: an anonymous LAN caller must not reach it.
         'llm.discoverModels',
         'agentPreset.read', 'agentPreset.copy', 'agentPreset.openDocument', 'agentPreset.remove',
       ]) {
-        expect([method, await call(port, method, 'harness.example')]).toEqual([method, 403])
+        expect([method, await call(port, method, 'harness.example')]).toEqual([method, 404])
       }
+      // An undeclared authority is still refused before the bridge runs.
+      expect(await call(port, 'settings.describe', 'other.example')).toBe(403)
       // The model catalog stays reachable for the same authority: a LAN
       // client's model picker needs it, and it carries no key or endpoint
       // state (404 is the empty proxy's carrier answer — the fence passed).
-      // `agentPreset.list` joins the model catalog for the same reason: ids and
-      // trust only, and a LAN client's preset picker needs it. `select` is
-      // reachable too: `session.create` already takes an `agentPreset`, and the
-      // deployment's own default already carries bash, so pinning the switch
-      // would be a fence beside an open gate.
       for (const method of ['llm.providers', 'llm.models', 'agentPreset.list', 'agentPreset.select']) {
         expect([method, await call(port, method, 'harness.example')]).toEqual([method, 404])
       }
       // Loopback reaches everything, configuration included.
-      expect(await call(port, 'settings.describe', `127.0.0.1:${String(port)}`)).toBe(404)
+      expect(await call(port, 'settings.describe', '127.0.0.1:' + String(port))).toBe(404)
     } finally {
       await close()
       await dispose()

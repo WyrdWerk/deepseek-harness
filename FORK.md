@@ -21,6 +21,8 @@ below is the complete, authoritative record of the divergence.
 | `c95ad94` | **Harden the guard** — pin the real fork-point SHA and add a CI step that resolves `FORK_POINT` and fails on an empty commit range, so an invalid pin can never again produce a vacuous green scan. |
 | `245c0eb` | **Drop the real-API e2e workflow** - it tests the official DeepSeek adapters this fork removed and its preflight hard-fails without a DEEPSEEK_API_KEY repo secret, so it has failed on every push since 706daad. Removed rather than silenced; restore it (plus the secret and adapters) if upstream e2e coverage is ever wanted back. |
 | `0dfa6b3` | **Drop the macOS Seatbelt sandbox leg** - the fork is Linux-only by policy; upstream's Sandbox matrix included a macos-latest/seatbelt leg whose darwin-parity failures on this fork were noise, not signal. Linux legs (bwrap, Landlock x2 arch) remain the full sandbox proof surface. |
+| `ceeddd8` | **Privileged /api methods honor declared serving authorities** - upstream pins the privileged set (settings/credentials plane, dialogs, presets, llm.discoverModels) to loopback with an empty trust list, which made the tailscale-serve GUI unable to load its Models page over the MagicDNS URL it itself prints. Privileged methods now pass the deployment trust list; the Host fence, same-Origin check, and cross-site refusal are unchanged. |
+| df7017b909 | **Complete the privileged-fence test inversion** - the real-HTTP variant test still asserted the loopback pin; rewritten to the fork policy (declared authority passes, undeclared still 403). |
 ## Working conventions
 
 - **Update this file in the same commit** that adds or changes fork-local
