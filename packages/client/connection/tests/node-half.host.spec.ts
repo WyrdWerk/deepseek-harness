@@ -161,34 +161,37 @@ describe('connection node half', () => {
     await dispose()
   })
 
-  it('pins privileged methods to loopback even for a declared trusted authority', async () => {
+  it('allows privileged methods from a declared trusted authority (fork)', async () => {
     const { routes, dispose } = await mounted({ trustedHosts: ['harness.example'] })
-    // The privileged set: native dialogs plus the whole settings/credential
-    // configuration plane, reads included, plus the one method that makes the
-    // host fetch a caller-chosen URL. The same declared authority reaches
-    // ordinary reads (carrier-level 404 from the empty proxy proves the fence
-    // passed), but each privileged method stays loopback-only and 403s.
+    // Fork change: upstream pins the privileged set (native dialogs, the whole
+    // settings/credential plane reads included, and the one method that makes
+    // the host fetch a caller-chosen URL) to loopback with an empty trust
+    // list. This fork binds them to the deployment serving authorities so a
+    // tailscale-serve deployment can drive settings from its MagicDNS name:
+    // each privileged method now passes the fence from the declared authority
+    // and reaches the bridge (carrier 404 with the empty proxy proves it).
     for (const method of [
       'host.pickDirectory', 'host.openPath',
       'settings.describe', 'settings.openDocument', 'settings.update', 'settings.replace', 'settings.mutate',
       'credentials.describe', 'credentials.set', 'credentials.unset',
       'llm.discoverModels',
-      // A composition names the plugins a session runs: reading one is
-      // reconnaissance, and copy/remove/openDocument manage the roster and
-      // drive the host desktop.
       'agentPreset.read', 'agentPreset.copy', 'agentPreset.openDocument', 'agentPreset.remove',
     ]) {
-      const denied = fakeResponse()
+      const allowed = fakeResponse()
       await routes[0]!.handler(
-        fakeRequest({ host: 'harness.example' }, `${API_PATH}/${method}`),
-        denied.response,
+        fakeRequest({ host: 'harness.example' }, API_PATH + '/' + method),
+        allowed.response,
       )
-      expect(denied.state.status).toBe(403)
-      expect(denied.state.body).toBe('forbidden')
+      expect(allowed.state.status).toBe(404)
     }
-    const read = fakeResponse()
-    await routes[0]!.handler(fakeRequest({ host: 'harness.example' }), read.response)
-    expect(read.state.status).not.toBe(403)
+    // An undeclared authority is still fenced off before anything runs.
+    const denied = fakeResponse()
+    await routes[0]!.handler(
+      fakeRequest({ host: 'other.example' }, API_PATH + '/settings.describe'),
+      denied.response,
+    )
+    expect(denied.state.status).toBe(403)
+    expect(denied.state.body).toBe('forbidden')
     await dispose()
   })
 
