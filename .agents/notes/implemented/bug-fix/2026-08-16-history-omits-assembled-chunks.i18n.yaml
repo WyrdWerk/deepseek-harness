@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-08-16-history-omits-assembled-chunks.md
+2026-08-16-history-omits-assembled-chunks.md: 7ccb13606534d0686f7712d1b767452c8e4c2afd
+2026-08-16-history-omits-assembled-chunks.zh.md: 9ce367e06199f926f8f6d6a53edd689be6243f89

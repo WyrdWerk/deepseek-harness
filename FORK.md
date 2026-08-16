@@ -23,6 +23,8 @@ below is the complete, authoritative record of the divergence.
 | `0dfa6b3` | **Drop the macOS Seatbelt sandbox leg** - the fork is Linux-only by policy; upstream's Sandbox matrix included a macos-latest/seatbelt leg whose darwin-parity failures on this fork were noise, not signal. Linux legs (bwrap, Landlock x2 arch) remain the full sandbox proof surface. |
 | `ceeddd8` | **Privileged /api methods honor declared serving authorities** - upstream pins the privileged set (settings/credentials plane, dialogs, presets, llm.discoverModels) to loopback with an empty trust list, which made the tailscale-serve GUI unable to load its Models page over the MagicDNS URL it itself prints. Privileged methods now pass the deployment trust list; the Host fence, same-Origin check, and cross-site refusal are unchanged. |
 | df7017b909 | **Complete the privileged-fence test inversion** - the real-HTTP variant test still asserted the loopback pin; rewritten to the fork policy (declared authority passes, undeclared still 403). |
+| (this change) | **Omit assembled `assistant/chunk` events from `session.history`** — a 50-message page no longer ships the completed token tape (measured 16 MiB / 84k chunks on an attached GLM session); in-flight and interrupted steps keep chunks. Durable logs, mux, and export are unchanged. Replace this placeholder SHA in the same commit that lands the change. |
+
 ## Working conventions
 
 - **Update this file in the same commit** that adds or changes fork-local
