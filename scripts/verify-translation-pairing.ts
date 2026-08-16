@@ -87,10 +87,16 @@ function isExcluded(file: string): boolean {
 
 // Enumerate the scope once: the whole corpus, or exactly the named pairs'
 // three files (a named pair whose files are absent is caught by the same
-// completeness rules that cover discovered remnants).
+// completeness rules that cover discovered remnants). `--cached` is fed every
+// staged sidecar; skip discovery-excluded trees (vendor, third-party) rather
+// than treating them as named-pair mistakes.
+const checkAnchors = indexMode
+  ? request.anchors.filter(anchor => isTranslationScopeFile(anchor) && !isExcluded(anchor))
+  : request.anchors
+
 const files = new Set<string>()
 if (request.scope === 'pairs') {
-  for (const anchor of request.anchors) {
+  for (const anchor of checkAnchors) {
     const { source, zh, meta } = translationPairPaths(anchor)
     for (const file of [source, zh, meta]) {
       if (repositoryFileExists(file)) files.add(file)
@@ -113,8 +119,8 @@ const metas = [...files].filter(f => f.endsWith('.i18n.yaml')).sort()
 const sources = [...files].filter(f => f.endsWith('.md') && !f.endsWith('.zh.md')).sort()
 
 if (request.scope === 'pairs') {
-  const rejected = request.anchors.filter(anchor => !isTranslationScopeFile(anchor) || isExcluded(anchor))
-  const absent = request.anchors.filter((anchor) => {
+  const rejected = checkAnchors.filter(anchor => !isTranslationScopeFile(anchor) || isExcluded(anchor))
+  const absent = checkAnchors.filter((anchor) => {
     const { source, zh, meta } = translationPairPaths(anchor)
     return ![source, zh, meta].some(repositoryFileExists)
   })

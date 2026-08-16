@@ -102,6 +102,11 @@
     "@deepseek-ai/dsh-storage-json": "workspace:^",
     "@deepseek-ai/dsh-workspace": "workspace:^",
     "@deepseek-ai/schemastery": "workspace:^",
+    "@deepseek-ai/dsh-client-ui-sticky-disclosure": "workspace:^",
+    "@deepseek-ai/dsh-tool-search": "workspace:^",
+    "dsh-worktree": "workspace:^",
+    "dsh-context": "workspace:^",
+    "@dingyi222666/dsh-session-notification": "workspace:^",
     "commander": "^15.0.0"
   },
   "peerDependencies": {

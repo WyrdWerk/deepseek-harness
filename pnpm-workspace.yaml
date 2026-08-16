@@ -19,6 +19,12 @@ packages:
   # Deploy root of the single-exe build: a pure dependency manifest whose
   # closure is what the exe bundles and what the Python runtime distributes.
   - python/sdk-runtime
+  # SHA-pinned community plugins composed after audit (third-party/dsh-plugins/PINNED.md).
+  # Members for dependency resolution only — not packages/* coverage or JSDoc gates.
+  - third-party/dsh-plugins/tool-search
+  - third-party/dsh-plugins/worktree
+  - third-party/dsh-plugins/context
+  - third-party/dsh-plugins/session-notification
 
 # Vendored framework packages keep their upstream semver ranges, while local
 # builds must resolve those matching names to this workspace's pinned sources.

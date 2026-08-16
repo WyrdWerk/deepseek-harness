@@ -38,3 +38,13 @@ apps/web/dist/
 worktrees/
 .agents/worktrees/
 .typert-*/
+# SHA-pinned community plugins: keep shipped lib/, drop nested git and installs.
+third-party/dsh-plugins/**/.git/
+third-party/dsh-plugins/**/node_modules/
+!third-party/dsh-plugins/**/lib/
+!third-party/dsh-plugins/**/lib/**
+# Failed or unused clones — local design references, not compose targets.
+third-party/dsh-plugins/chat-import/
+third-party/dsh-plugins/compaction-instant/
+third-party/dsh-plugins/sticky-disclosure/
+third-party/dsh-plugins/plugin-skills/

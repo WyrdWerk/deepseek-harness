@@ -15,7 +15,8 @@
   ],
   "ignoreWorkspaces": [
     "vendor/*",
-    "python/sdk-runtime"
+    "python/sdk-runtime",
+    "third-party/dsh-plugins/*"
   ],
   "ignoreDependencies": [
     "@yarnpkg/cli-dist",
@@ -166,6 +167,15 @@
         "src/**/*.ts",
         "src/**/*.tsx",
         "tests/**/*.tsx"
+      ]
+    },
+    "packages/client/ui-sticky-disclosure": {
+      "entry": [
+        "tests/**/*.spec.ts"
+      ],
+      "project": [
+        "src/**/*.ts",
+        "tests/**/*.ts"
       ]
     },
     "packages/client/ui-directory-picker-browse": {
@@ -748,7 +758,10 @@
     },
     "packages/bundle/web-app": {
       "ignoreDependencies": [
-        "@deepseek-ai/.+"
+        "@deepseek-ai/.+",
+        "@dingyi222666/dsh-session-notification",
+        "dsh-worktree",
+        "dsh-context"
       ]
     }
   }

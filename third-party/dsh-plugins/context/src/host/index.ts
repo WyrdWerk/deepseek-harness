@@ -1,0 +1,35 @@
+/**
+ * dsh-context — Host half (installed package entry).
+ *
+ * A plain Cordis plugin module (ESM) loaded by the harness as the
+ * `dsh-context` loader row. Since v0.9 the Host half is a single *projection
+ * unit* (`timeline.ts`): registered on `ctx.sessionProjections`, it folds a
+ * session's durable event log into the per-request context-composition
+ * timeline and lets the harness stream the finished value to the browser
+ * through its push pipeline. There is no custom RPC channel anymore.
+ *
+ * Required service: the session-projection registry (the framework drives
+ * the unit over `session/event` and persists its state via the projection
+ * cache). Registration conditions on the registry being composed
+ * (`ctx.inject(['sessionProjections'], …)`, the official pattern — an absent
+ * registry leaves the plugin inert, which is safe).
+ */
+
+import type { Context } from '@deepseek-ai/cordis'
+import { contextTimelineDefinition } from './timeline'
+
+export const name = 'dsh-context'
+
+/** Required services: the session-projection registry that drives the unit. */
+export const inject = ['sessionProjections']
+
+export function apply(ctx: Context): void {
+  ctx.inject(['sessionProjections'], (projectionCtx) => {
+    projectionCtx.sessionProjections.register(contextTimelineDefinition)
+  })
+}
+
+// ---- public type surface (stable for downstream consumers) -------------------
+
+export type { Category, ContextEventRecord, RequestRecord, Snapshot, ContextTimeline, SurfaceNode } from '../shared/types'
+export type { TimelineState } from './fold'

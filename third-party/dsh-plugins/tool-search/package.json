@@ -1,0 +1,79 @@
+{
+  "name": "@deepseek-ai/dsh-tool-search",
+  "description": "Experimental per-agent tool discovery and progressive schema disclosure",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.7.0",
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dsh-external/dsh-tool-search.git"
+  },
+  "homepage": "https://github.com/dsh-external/dsh-tool-search#readme",
+  "bugs": {
+    "url": "https://github.com/dsh-external/dsh-tool-search/issues"
+  },
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./invariant": {
+      "types": "./lib/types/invariant.d.ts",
+      "default": "./lib/invariant.js"
+    },
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/invariant.js",
+    "lib/types/**/*.d.ts",
+    "cordis.patch.yml"
+  ],
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && tsdown",
+    "benchmark": "tsx scripts/benchmark.ts",
+    "test": "vitest run tests",
+    "lint": "oxlint src tests scripts tsdown.config.ts vitest.config.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "check:rules": "node scripts/check-repository-rules.mjs",
+    "check:package": "publint --pack=false --strict",
+    "check": "pnpm run check:rules && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build && pnpm run check:package"
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "workspace:^"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "workspace:^",
+    "@deepseek-ai/dsh-agent": "workspace:^",
+    "@deepseek-ai/dsh-invariants": "workspace:^",
+    "@deepseek-ai/dsh-llm": "workspace:^",
+    "@deepseek-ai/dsh-session": "workspace:^",
+    "@deepseek-ai/dsh-tools": "workspace:^"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "workspace:^",
+    "@deepseek-ai/dsh-agent": "workspace:^",
+    "@deepseek-ai/dsh-agent-loop": "workspace:^",
+    "@deepseek-ai/dsh-agent-loop-testkit": "workspace:^",
+    "@deepseek-ai/dsh-invariants": "workspace:^",
+    "@deepseek-ai/dsh-llm": "workspace:^",
+    "@deepseek-ai/dsh-session": "workspace:^",
+    "@deepseek-ai/dsh-token-meter": "workspace:^",
+    "@deepseek-ai/dsh-tools": "workspace:^",
+    "@types/node": "^22.20.0",
+    "oxlint": "1.76.0",
+    "publint": "^0.3.21",
+    "tsdown": "^0.22.2",
+    "tsx": "^4.20.6",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8"
+  }
+}

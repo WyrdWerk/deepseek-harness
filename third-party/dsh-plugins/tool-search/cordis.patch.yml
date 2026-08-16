@@ -1,0 +1,5 @@
+- insert:
+    - id: tool-search
+      name: '@deepseek-ai/dsh-tool-search'
+    - id: tool-search-invariant
+      name: '@deepseek-ai/dsh-tool-search/invariant'

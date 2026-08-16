@@ -18,8 +18,8 @@
  * - id: advisor
  *   name: '@deepseek-ai/dsh-advisor'
  *   config:
- *     provider: codex
- *     model: gpt-5.4-mini
+ *     provider: openai
+ *     model: gpt-4o-mini
  *     cadenceTurns: 3
  * ```
  *
@@ -63,8 +63,8 @@ export interface Config {
 
 export const Config: z<Config> = z.object({
   enabled: z.boolean().default(true),
-  provider: z.string().default('codex'),
-  model: z.string().default('gpt-5.4-mini'),
+  provider: z.string().default('openai'),
+  model: z.string().default('gpt-4o-mini'),
   cadenceTurns: z.number().step(1).min(1).default(3),
   maxDigestChars: z.number().step(1).min(500).default(24_000),
   maxAdvisoryChars: z.number().step(1).min(200).default(2_000),

@@ -251,6 +251,24 @@
     fetch: false
     searchTimeoutMs: 60000
 
+# WyrdWerk fork: SHA-pinned community plugins after audit
+# (third-party/dsh-plugins/AUDIT.md). Tool names match this repo
+# (`read`, not `read_file`). `todo_*` keeps `todo_write` visible.
+# `tool-search-invariant` stays off this preset: it injects host
+# `invariants`, which web does not compose, and a waiting preset row
+# fails the standing mount (New Session / workspace plus).
+- id: tool-search
+  name: '@deepseek-ai/dsh-tool-search'
+  config:
+    alwaysVisible: [read, write, edit, bash, grep, glob, todo_*]
+
+# isolate: worktree `provide`s `worktree`; a root-realm publish fails
+# the standing mount (`leakedServices`).
+- id: worktree
+  name: dsh-worktree
+  isolate:
+    worktree: true
+
 # ── presentation ────────────────────────────────────────────────────────────
 
 # Code Mode for this agent alone. The row waits for the host's `codeRuntime`

@@ -97,26 +97,11 @@
           openai:
             apiKeyEnv: OPENAI_API_KEY
 
-    # OAuth-only LLM providers from the pi-ai catalog: openai-codex (ChatGPT
-    # subscription, route `codex`) and xai (Grok/X subscription, route `xai`),
-    # each streamed through a stored OAuth credential that pi-ai refreshes
-    # under the store lock. Tokens come from the first existing store of
-    # ~/.pi/agent/auth.json (pi; `xai` lives under its `xai-oauth` login key)
-    # then ~/.codex/auth.json (Codex CLI); pin one explicitly with `authPath`.
-    - id: llm-oauth
-      name: '@deepseek-ai/dsh-llm-oauth'
-      config:
-        providers:
-          openai-codex:
-            route: codex
-          xai:
-            route: xai
-
     - id: advisor
       name: '@deepseek-ai/dsh-advisor'
       config:
-        provider: codex
-        model: gpt-5.4-mini
+        provider: openai
+        model: gpt-4o-mini
         cadenceTurns: 3
 
     - id: session-persistence-jsonl

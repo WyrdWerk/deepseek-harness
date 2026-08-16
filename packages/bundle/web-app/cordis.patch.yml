@@ -274,6 +274,21 @@
     - id: ui-trajectory
       name: '@deepseek-ai/dsh-client-ui-trajectory'
 
+    # WyrdWerk fork: pin expanded Think/tool headers that have scrolled off
+    # the conversation top edge, plus collapse-all. First-party; no extra HTTP.
+    - id: ui-sticky-disclosure
+      name: '@deepseek-ai/dsh-client-ui-sticky-disclosure'
+
+    # WyrdWerk fork: SHA-pinned community context panel (session-projection
+    # unit plus browser slot). Audit: third-party/dsh-plugins/AUDIT.md.
+    - id: dsh-context
+      name: dsh-context
+
+    # WyrdWerk fork: SHA-pinned community session notifications (sounds plus
+    # optional OS notifications). Prefs in localStorage; no extra HTTP.
+    - id: dsh-session-notification
+      name: '@dingyi222666/dsh-session-notification'
+
 # ── the agent plane moves behind agent presets ─────────────────────────────
 #
 # Every row below composes what ONE agent contributes to the host registries:

@@ -32,8 +32,8 @@ session/event tool/result (error) ──► cooldown gate ───────�
 | Field | Default | Meaning |
 |---|---|---|
 | `enabled` | `true` | Master switch |
-| `provider` | `codex` | Reviewer route (`dsh-llm-codex-oauth` pairs naturally) |
-| `model` | `gpt-5.4-mini` | Reviewer model |
+| `provider` | `openai` | Reviewer route (any mounted LLM route; point it at one your profile actually serves) |
+| `model` | `gpt-4o-mini` | Reviewer model |
 | `cadenceTurns` | `3` | Closed turns between scheduled reviews |
 | `maxDigestChars` | `24000` | Transcript digest budget |
 | `maxAdvisoryChars` | `2000` | Cap on one injected note |
