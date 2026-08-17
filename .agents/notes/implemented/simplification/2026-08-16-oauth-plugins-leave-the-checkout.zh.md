@@ -12,7 +12,7 @@ Status: implemented
 
 ## Decision
 
-删除 `packages/llm/llm-oauth` 及其 `dsh-base` 行。ChatGPT OAuth 是 `dsh-codex@0.2.3`，Grok 是 `dsh-grok`，两者都装在 web profile 上（`dsh plugin --profile web add` / 对 staging mirror 的 `link:`），不是检出树的 workspace 成员。其路由仍只信任回环。advisor 的随附默认改为 `openai` / `gpt-4o-mini`，不再指向已删除的 `codex` 路由。home overlay 仍把 advisor 指向 Laggingway。
+删除 `packages/llm/llm-oauth` 及其 `dsh-base` 行。ChatGPT OAuth 是 `dsh-codex@0.2.3`，Grok 是 `dsh-grok`，两者都装在 web profile 上（`dsh plugin --profile web add` / 对 staging mirror 的 `link:`），不是检出树的 workspace 成员。其路由仍只信任回环。树内 advisor 也已移除（与 profile 插件共用 loader id `advisor`）；reviewer 配置在 home overlay。见 [FORK.md](../../../../FORK.md)。
 
 ## Alternatives considered
 
@@ -24,4 +24,4 @@ Status: implemented
 
 ## Consequences
 
-克隆本 fork 不会自带 Codex/Grok OAuth，除非操作者安装 profile 插件。`dsh-web-app` 不再读取 pi 或 Codex CLI 的 auth 文件。[FORK.md](../../../../FORK.md) 记录这一拆分。
+克隆本 fork 不会自带 Codex/Grok OAuth 或 reviewer，除非操作者安装 profile 插件（`dsh-codex@0.2.3`、staging mirror 的 `dsh-grok`、`dsh-advisor@0.2.0`）。`dsh-web-app` 不再读取 pi 或 Codex CLI 的 auth 文件。[FORK.md](../../../../FORK.md) 记录这一拆分和安装命令。

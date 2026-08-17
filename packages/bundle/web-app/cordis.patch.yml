@@ -289,6 +289,21 @@
     - id: dsh-session-notification
       name: '@dingyi222666/dsh-session-notification'
 
+    # WyrdWerk fork: SHA-pinned community AgentTeams (multi-agent coordination).
+    # Audit: third-party/dsh-plugins/AUDIT.md. Tools + system-prompt usage section.
+    - id: agent-teams
+      name: dsh-agent-teams
+      config:
+        # Team state lives under <session workspace>/.agent-teams/<teamId>/
+        stateDir: .agent-teams
+        # Spawn members as continuable subagents ('spawn' or 'fork').
+        memberProvider: spawn
+
+    # WyrdWerk fork: SHA-pinned community GenUI (inline dsh-ui renderer).
+    # Audit: third-party/dsh-plugins/AUDIT.md. Host fence + browser renderer.
+    - id: genui
+      name: '@omdsh-dev/dsh-genui'
+
 # ── the agent plane moves behind agent presets ─────────────────────────────
 #
 # Every row below composes what ONE agent contributes to the host registries:

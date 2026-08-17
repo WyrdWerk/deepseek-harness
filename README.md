@@ -7,11 +7,12 @@ DeepSeek Harness (`dsh`) is an open-source agent harness developed by [DeepSeek 
 <!-- custom-fork -->
 > [!NOTE]
 > This repository is the **WyrdWerk fork** of deepseek-ai/deepseek-harness,
-> maintained as a private customer gateway build. It carries a documented set
-> of local changes — OAuth LLM provider routes (Codex/xAI), a turn-settled
-> advisor plugin, dynamic model catalogs, tailscale web publishing, and a
-> secret-scan CI guard. See [FORK.md](FORK.md) for the complete divergence
-> record.
+> maintained as a private customer gateway build. Local changes include
+> Tailscale web publishing, a secret-scan CI guard, SHA-pinned community
+> plugins (tool-search, worktree, context, session-notification, AgentTeams,
+> GenUI), and a first-party sticky-header rewrite. ChatGPT/Grok login and the
+> reviewer are per-profile installs, not part of a clone. See [FORK.md](FORK.md)
+> for the complete plugin inventory, install sources, and commit record.
 
 It uses an architecture where **everything is a plugin**, and is powered by [Cordis](https://github.com/cordiverse/cordis), whose design is described in [_A Programming Paradigm for Spatiotemporal Composability_](https://github.com/cordiverse/paper).
 

@@ -18,7 +18,7 @@ Status: implemented
 
 通过审计的插件可以组装（钉住、经过审查）。未通过或显得有风险的插件不是 `file:` 依赖、不是 `dsh plugin add` 目标，也不是浮动的 `github:` / `npm:` 别名。若仍需要该能力，把该仓库当设计参考，在 `packages/` 下按 DSH 接缝改写第一方 workspace 包：HTTP 不离开 `/api`，没有 install 生命周期脚本，进程只通过 `ctx.subprocess` argv 启动，文件系统走 `ctx.fs`，配置在 cordis.yml。
 
-chat-import 和 compaction-instant 不进入 `dsh-web-app`。tool-search、worktree、context 和 session-notification 通过了 SHA 钉住的复审，作为 SHA 钉住的 workspace 成员组装（[钉住清单](../../../../third-party/dsh-plugins/PINNED.md)）。`@deepseek-ai/dsh-client-ui-sticky-disclosure` 是第一个第一方改写（行为遵循 [dsh-sticky-disclosure](https://github.com/Han-1413141/dsh-sticky-disclosure)，MIT；源码是本仓库的原创 TypeScript）。已发布的 preset 继续 isolate `compaction-basic`。apiproxy 的 settings 白名单不暴露 `compaction-instant`。
+chat-import 和 compaction-instant 不进入 `dsh-web-app`。tool-search、worktree、context、session-notification、AgentTeams 和 GenUI 通过了 SHA 钉住的审计，作为 SHA 钉住的 workspace 成员组装（[钉住清单](../../../../third-party/dsh-plugins/PINNED.md)）。`@deepseek-ai/dsh-client-ui-sticky-disclosure` 是第一个第一方改写（行为遵循 [dsh-sticky-disclosure](https://github.com/Han-1413141/dsh-sticky-disclosure)，MIT；源码是本仓库的原创 TypeScript）。已发布的 preset 继续 isolate `compaction-basic`。apiproxy 的 settings 白名单不暴露 `compaction-instant`。完整工作台清单（含仅 profile 安装的插件）见 [FORK.md](../../../../FORK.md)。
 
 ## 备选方案
 
@@ -32,4 +32,4 @@ chat-import 和 compaction-instant 不进入 `dsh-web-app`。tool-search、workt
 
 ## 影响
 
-社区插件路径在审计之后仍然开放。chat-import 和 compaction-instant 在下一次通过审计或第一方改写之前不进入 `dsh-web-app`。tool-search、worktree、context 和 session-notification 按 [PINNED.md](../../../../third-party/dsh-plugins/PINNED.md) 的钉住 SHA 组装。sticky-disclosure 是第一方。翻译配对把 `third-party/` 与 `vendor/` 同样对待：发现阶段跳过，不是产品双语源。更新未通过的社区 GitHub 仓库不会改变本进程；通过审计的 PR 或改写 PR 才会。
+社区插件路径在审计之后仍然开放。chat-import 和 compaction-instant 在下一次通过审计或第一方改写之前不进入 `dsh-web-app`。tool-search、worktree、context、session-notification、AgentTeams 和 GenUI 按 [PINNED.md](../../../../third-party/dsh-plugins/PINNED.md) 的钉住 SHA 组装。sticky-disclosure 是第一方。DSH-better-sidebar 和 dsh-web-ui 皮肤库仍是 `~/Agent/Agent/plugin-review/` 下的设计参考。翻译配对把 `third-party/` 与 `vendor/` 同样对待：发现阶段跳过，不是产品双语源。更新未通过的社区 GitHub 仓库不会改变本进程；通过审计的 PR 或改写 PR 才会。

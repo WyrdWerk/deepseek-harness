@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/simplification/2026-08-16-oauth-plugins-leave-the-checkout.md
-2026-08-16-oauth-plugins-leave-the-checkout.md: 000ced5b8d07c02fe3135bc7b1612c23776c7517
-2026-08-16-oauth-plugins-leave-the-checkout.zh.md: 0379c76162e5cc2a6c67c3c2f79f1ae1ceebacae
+2026-08-16-oauth-plugins-leave-the-checkout.md: dbab967f74099cbc1c109f2fee0ac8949283d1c4
+2026-08-16-oauth-plugins-leave-the-checkout.zh.md: 899703cd7d92c6b3867038ba92d2d9974b81678e

@@ -4,6 +4,10 @@
 
 DeepSeek Harness（`dsh`）是由 [DeepSeek AI](https://deepseek.com) 开发的开源 agent harness（智能体框架）。
 
+<!-- custom-fork -->
+> [!NOTE]
+> 本仓库是 deepseek-ai/deepseek-harness 的 **WyrdWerk fork**，作为私有客户网关构建维护。本地变更包括 Tailscale Web 发布、密钥扫描 CI 守卫、SHA 钉住的社区插件（tool-search、worktree、context、session-notification、AgentTeams、GenUI），以及第一方的粘性标题改写。ChatGPT/Grok 登录与 reviewer 是按 profile 安装的，克隆仓库不会自带。完整插件清单、安装来源与提交记录见 [FORK.md](FORK.md)。
+
 它采用**一切皆插件**的架构，并由 [Cordis](https://github.com/cordiverse/cordis) 驱动，其设计参见论文 [_A Programming Paradigm for Spatiotemporal Composability_](https://github.com/cordiverse/paper)。
 
 ## 开发者预览

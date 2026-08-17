@@ -12,7 +12,7 @@ Composing those bundles into `dsh-web-app` would fail the community-plugin Host-
 
 ## Decision
 
-Delete `packages/llm/llm-oauth` and its `dsh-base` row. ChatGPT OAuth is `dsh-codex@0.2.3` and Grok is `dsh-grok`, both installed on the web profile (`dsh plugin --profile web add` / `link:` to the staging mirror), not as checkout workspace members. Their routes stay loopback-trusted. Advisor's shipped default is `openai` / `gpt-4o-mini` so it no longer names the removed `codex` route. The home overlay still points the advisor at Laggingway.
+Delete `packages/llm/llm-oauth` and its `dsh-base` row. ChatGPT OAuth is `dsh-codex@0.2.3` and Grok is `dsh-grok`, both installed on the web profile (`dsh plugin --profile web add` / `link:` to the staging mirror), not as checkout workspace members. Their routes stay loopback-trusted. The in-tree advisor is also gone (same loader id `advisor` as the profile plugin); reviewer config lives on the home overlay. See [FORK.md](../../../../FORK.md).
 
 ## Alternatives considered
 
@@ -24,4 +24,4 @@ Delete `packages/llm/llm-oauth` and its `dsh-base` row. ChatGPT OAuth is `dsh-co
 
 ## Consequences
 
-A clone of this fork does not include Codex/Grok OAuth until the operator installs the profile plugins. `dsh-web-app` no longer reads pi or Codex CLI auth files. [FORK.md](../../../../FORK.md) records the split.
+A clone of this fork does not include Codex/Grok OAuth or the reviewer until the operator installs the profile plugins (`dsh-codex@0.2.3`, staging-mirror `dsh-grok`, `dsh-advisor@0.2.0`). `dsh-web-app` no longer reads pi or Codex CLI auth files. [FORK.md](../../../../FORK.md) records the split and the install commands.

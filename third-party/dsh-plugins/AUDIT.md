@@ -1,12 +1,13 @@
-# Audit: tool-search, worktree, context, session-notification
+# Audit: SHA-pinned community plugins
 
-Date: 2026-08-16.
+Date: 2026-08-16 (first four); addendum 2026-08-17 (AgentTeams, GenUI).
 Policy: [.agents/notes/implemented/process/2026-08-16-community-plugin-vetting.md](../../.agents/notes/implemented/process/2026-08-16-community-plugin-vetting.md).
 Pins: [PINNED.md](PINNED.md).
+Workbench inventory: [FORK.md](../../FORK.md).
 
 ## Verdict
 
-**Compose** these four as SHA-pinned workspace members of `dsh-web-app`. Do not `dsh plugin add` them and do not use a floating `github:` / `npm:` alias.
+**Compose** these six as SHA-pinned workspace members of `dsh-web-app`. Do not `dsh plugin add` them and do not use a floating `github:` / `npm:` alias.
 
 GitHub attestations 404 (no npm provenance). That is not an automatic fail: the trees live in this repository at a recorded SHA, `@deepseek-ai/*` versions are remapped onto this workspace, and a bump requires a new audit.
 
@@ -45,6 +46,27 @@ GitHub attestations 404 (no npm provenance). That is not an automatic fail: the 
 - Upstream `prepare: yarn run build` is stripped before install (see PINNED.md).
 - A completed-session OS notification can include the last assistant message (product privacy, not a Host-fence gap).
 
+### agent-teams (`9a743c3`)
+
+- Maintainer: [NanmiCoder/dsh-agent-teams](https://github.com/NanmiCoder/dsh-agent-teams). `dsh-agent-teams@0.1.5`, MIT.
+- Zero runtime deps originally; all `@deepseek-ai/*` remapped to `workspace:^` (resolved from base/web-app bundles). No lifecycle scripts (only verify/prepublishOnly, not install-time); built in-tree because the repo ships no prebuilt lib.
+- Multi-agent team coordination: registers `agent_teams_*` tools + one system-prompt usage section; spawns members via `ctx.subagents` (`spawn` provider, `subagent-spawn-in-process` present in the web graph).
+- Host routes: `/plugins/dsh-agent-teams/state` + `/assets` (allowlisted PNGs) — same `/plugins` trust surface as client bundle serving, no extra HTTP. No fetch/telemetry.
+- Client injects locale/runtime/ui-conversation. Client bundle built (`lib/client.js` 71.7 kB closure).
+- Client tsc reports stripped-devDep `@types/react` type warnings (documented; tsc still emits and tsdown bundles correctly).
+
+### genui (`2187fa4`)
+
+- Maintainer: [omdsh-dev/dsh-genui](https://github.com/omdsh-dev/dsh-genui). `@omdsh-dev/dsh-genui@0.8.6`, MIT.
+- Runtime dep `react` only; `@deepseek-ai/*` peers remapped `workspace:^`. Shipped prebuilt `lib/` (`index.js` + vendored mermaid.js/three.js assets). No lifecycle scripts (prepack is publish-time only).
+- Whitelist component vocabulary renderer via a ```dsh-ui fence; no eval, sanitized mermaid, http(s)/mailto-only links. Host asset route `/plugins/dsh-genui/assets` flat-name allowlisted.
+- No extra HTTP, no telemetry.
+
 ## Still out
 
 `chat-import` (unfenced `/api-import/*`) and `compaction-instant` stay out of `dsh-web-app`.
+
+Reviewed as design references only (not composed; trees live under `~/Agent/Agent/plugin-review/`, not this directory):
+
+- [omdsh-dev/DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) — session-local explorer / editor / terminal sidebar; large extra HTTP/PTY surface.
+- community `dsh-web-ui` skin gallery — official-facade skins; this fork does not ship a skin pack.

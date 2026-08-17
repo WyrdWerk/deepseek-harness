@@ -97,13 +97,6 @@
           openai:
             apiKeyEnv: OPENAI_API_KEY
 
-    - id: advisor
-      name: '@deepseek-ai/dsh-advisor'
-      config:
-        provider: openai
-        model: gpt-4o-mini
-        cadenceTurns: 3
-
     - id: session-persistence-jsonl
       name: '@deepseek-ai/dsh-session-persistence-jsonl'
       config:
