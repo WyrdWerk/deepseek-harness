@@ -28,14 +28,14 @@ resources.
 
 ## Local tool integration
 
-- **GitHub:** `/usr/bin/gh` is authenticated as `WyrdWerk` with `gist`,
+- **GitHub:** `/usr/bin/gh` is authenticated as the authenticated GitHub account with `gist`,
   `read:org`, `repo`, and `workflow` scopes. DSH uses it through the shell.
 - **Search/external apps:** Composio 0.4.1 lives at `~/.composio/composio`.
   Because `$HOME` is read-only, its config/auth state is mirrored to
-  `~/projects/composio-home/.composio`.
-- `~/projects/.composio-bin/composio` redirects Composio to that writable home
+  `$HOME/projects/composio-home/.composio`.
+- `$HOME/projects/.composio-bin/composio` redirects Composio to that writable home
   and sets `COMPOSIO_DISABLE_TELEMETRY=1` and `DO_NOT_TRACK=1`.
-- `~/projects/dsh-home/AGENTS.md` tells DSH agents to use `gh` for GitHub and
+- `$DSH_HOME/AGENTS.md` tells DSH agents to use `gh` for GitHub and
   `composio` for searches/external-app actions, with `--dry-run`/approval
   guidance for side effects.
 
@@ -44,20 +44,20 @@ resources.
 Run:
 
 ```bash
-~/projects/audit-deepseek-harness/update-upstream.sh
+$HOME/projects/audit-deepseek-harness/update-upstream.sh
 ```
 
 The updater fetches `origin/master`, rebases the local branch, stops on
 conflicts, then reinstalls, rebuilds, and runs:
 
 ```bash
-~/projects/audit-deepseek-harness/verify-no-telemetry.sh
+$HOME/projects/audit-deepseek-harness/verify-no-telemetry.sh
 ```
 
 A stock-DSH skill with the same procedure is installed at:
 
 ```text
-~/projects/dsh-home/skills/dsh-upstream-sync/SKILL.md
+$DSH_HOME/skills/dsh-upstream-sync/SKILL.md
 ```
 
 It is user-invocable as `/dsh-upstream-sync` and model-invocable when the
@@ -83,7 +83,7 @@ user asks to update or sync upstream.
   stock `llm-pi-ai` adapter. It is a vendor-neutral contracts/no-op package with
   no exporter or network path; DSH does not pass it a telemetry context.
 - `gh`'s `repo` and `workflow` scopes are broad. Any DSH shell command can act
-  as `WyrdWerk`; keep approval prompts on.
+  as the authenticated GitHub account; keep approval prompts on.
 - Composio still calls the Composio API for searches/actions; that is inherent
   to using it. Its local telemetry/update-check writes are disabled.
 - DSH remains experimental and explicitly not a security boundary. Read
