@@ -47,7 +47,12 @@ Run:
 $HOME/projects/audit-deepseek-harness/update-upstream.sh
 ```
 
-The updater fetches `origin/master`, rebases the local branch, stops on
+Remotes are conventional:
+
+- `origin` = `WyrdWerk/deepseek-harness` (your fork; push target)
+- `upstream` = `deepseek-ai/deepseek-harness` (upstream source)
+
+The updater fetches `upstream/master`, rebases the local branch, stops on
 conflicts, then reinstalls, rebuilds, and runs:
 
 ```bash
