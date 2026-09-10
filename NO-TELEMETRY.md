@@ -41,6 +41,22 @@ is reached through Tailscale. This fork adds one narrow local exception:
 Keep this patch during upstream updates or the Models/settings UI will become
 inert over Tailscale again.
 
+## Stable Web UI token
+
+Upstream DSH generates a fresh random browser-launch token per process, so a
+bookmarked URL stops working after every restart. This fork keeps the token
+required but makes it stable:
+
+- `packages/client/connection/src/browser-auth.ts` reads `DSH_WEB_TOKEN` when
+  set, instead of always generating a random token.
+- The systemd unit loads it from
+  `dsh-247/web-token.env` through `EnvironmentFile`.
+- The token remains a real app-level secret; Tailscale only controls network
+  reachability and DSH does not read Tailscale identity.
+
+Rotate the token with `dsh-247/set-web-token.sh`; print the stable URL with
+`dsh-247/show-url.sh`.
+
 ## Local tool integration
 
 - **GitHub:** `/usr/bin/gh` is authenticated as the authenticated GitHub account with `gist`,

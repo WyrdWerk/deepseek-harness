@@ -52,6 +52,14 @@ function decodeBase64Url(value: string): Buffer | undefined {
 function processLaunchToken(owner: object): string {
   const existing = PROCESS_LAUNCH_TOKENS.get(owner)
   if (existing !== undefined) return existing
+  const configured = process.env.DSH_WEB_TOKEN
+  if (configured !== undefined && configured !== '') {
+    if (configured.length < 16) {
+      throw new Error('client-connection: DSH_WEB_TOKEN must be at least 16 characters')
+    }
+    PROCESS_LAUNCH_TOKENS.set(owner, configured)
+    return configured
+  }
   const created = encodeBase64Url(randomBytes(SECRET_BYTES))
   PROCESS_LAUNCH_TOKENS.set(owner, created)
   return created
