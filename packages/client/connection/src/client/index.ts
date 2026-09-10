@@ -14,6 +14,18 @@ import { isLoopbackHostname } from '../loopback-hostname.ts'
 import type { ClientConnectionRpc } from '../rpc.ts'
 import { resolveConnectionConfig } from '../recovery-config.ts'
 
+/**
+ * Local compatibility patch: Tailscale MagicDNS names are operator-owned
+ * tailnet hosts. Treat them as loopback for the browser settings mirror so
+ * the Models/settings UI works over Tailscale Serve. The server still enforces
+ * its own `--trusted-host` fence and process-token authentication.
+ * @param hostname - browser page hostname.
+ * @returns true for a Tailscale MagicDNS name.
+ */
+function isTailscaleOperatorHostname(hostname: string): boolean {
+  return hostname === 'ts.net' || hostname.endsWith('.ts.net')
+}
+
 declare module '@deepseek-ai/cordis' {
   interface Events {
     /**
@@ -224,7 +236,10 @@ export function apply(ctx: Context): void {
     publishState(undefined)
   }
   const handle: ConnectionHandle = {
-    isLoopback: transport?.ownsHost === true || pageLocation === undefined || isLoopbackHostname(pageLocation.hostname),
+    isLoopback: transport?.ownsHost === true
+      || pageLocation === undefined
+      || isLoopbackHostname(pageLocation.hostname)
+      || isTailscaleOperatorHostname(pageLocation.hostname),
     generation: {
       getSnapshot: () => generation,
       subscribe: (listener) => {

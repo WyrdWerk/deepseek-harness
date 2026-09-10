@@ -26,6 +26,21 @@ The anonymous-user-id package remains present for plugin compatibility, but the
 core harness no longer attaches its value to provider requests or OTel
 resources.
 
+## Tailscale settings compatibility patch
+
+Upstream deliberately gives non-loopback browser pages no durable settings, so
+the Models page fails with `settings are unavailable in this browser` when DSH
+is reached through Tailscale. This fork adds one narrow local exception:
+
+- `packages/client/connection/src/client/index.ts` treats a page on
+  Tailscale MagicDNS (`*.ts.net`) as operator-owned, so the settings mirror
+  uses `host` persistence instead of `memory`.
+- The server still enforces its `--trusted-host` Host/Origin fence and the DSH
+  process-token authentication.
+
+Keep this patch during upstream updates or the Models/settings UI will become
+inert over Tailscale again.
+
 ## Local tool integration
 
 - **GitHub:** `/usr/bin/gh` is authenticated as the authenticated GitHub account with `gist`,
