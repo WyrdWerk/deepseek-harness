@@ -240,6 +240,13 @@ async function composeProfile(
   const composedOverlays = [...overlays]
   const telemetryPatch = resolveTelemetryPatch(process.env.DSH_TELEMETRY_DISABLED, rows.has(TELEMETRY_ROW_ID))
   if (telemetryPatch !== undefined) composedOverlays.push(telemetryPatch)
+  // The DeepSeek session-log uploader and plugin-package inventory are separate
+  // egress paths; disable them with the same authoritative privacy switch.
+  if ((process.env.DSH_TELEMETRY_DISABLED ?? '') !== '') {
+    for (const id of ['session-log-deepseek', 'plugin-package-inventory-deepseek']) {
+      if (rows.has(id)) composedOverlays.push({ id, disabled: true })
+    }
+  }
   return { profile, bundlePatches, homePatches, overlays: composedOverlays }
 }
 

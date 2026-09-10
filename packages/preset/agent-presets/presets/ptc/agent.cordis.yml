@@ -259,7 +259,7 @@
   name: '@deepseek-ai/dsh-tool-web'
   config:
     fetch: true
-    searchTimeoutMs: 60000
+    search: false
 
 # ── presentation ────────────────────────────────────────────────────────────
 

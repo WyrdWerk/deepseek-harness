@@ -179,8 +179,7 @@
     "demo:ptc": "node scripts/demo-ptc.mjs",
     "demo:inspector": "node --import tsx/esm apps/cli/src/bin.ts web --patch ./packages/experimental/inspector/cordis.source.patch.yml",
     "mock:llm": "node --import tsx packages/test-support/llm-mock-server/src/bin.ts",
-    "dev:web": "tsx scripts/dev-web.ts --poll",
-    "postinstall": "node scripts/install-lefthook.mjs"
+    "dev:web": "tsx scripts/dev-web.ts --poll"
   },
   "devDependencies": {
     "@deepseek-ai/dsh-agent": "workspace:^",
@@ -205,7 +204,6 @@
     "js-yaml": "^4.2.0",
     "jscpd": "^5.0.12",
     "jsdom": "29.1.1",
-    "lefthook": "^2.1.9",
     "lightningcss": "^1.32.0",
     "mdast-util-from-markdown": "^2.0.3",
     "mdast-util-gfm": "^3.1.0",
