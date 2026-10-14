@@ -29,15 +29,7 @@ Install dependencies from the repo root:
 pnpm install
 ```
 
-The install also configures worktree-local Lefthook hooks and the `dsh-translation-pairing` Git merge driver through `scripts/install-lefthook.mjs`. The [worktree-local hooks Agent Note](../.agents/notes/implemented/process/2026-07-27-worktree-local-lefthook.md) owns the hook-path safety contract; the [automatic pairing merges Agent Note](../.agents/notes/implemented/process/2026-08-08-automatic-translation-pairing-merges.md) owns the merge driver.
-
-If either integration is missing because dependencies were restored from cache or `postinstall` was skipped, install them manually:
-
-```sh
-node scripts/install-lefthook.mjs
-```
-
-If the wrapper rejects existing Git configuration or reports a stale lock, follow its diagnostic and the linked Agent Note rather than editing worktree metadata speculatively. After moving a checkout, rerun the wrapper to regenerate the owned path.
+This no-telemetry fork does not install Lefthook hooks or the `dsh-translation-pairing` Git merge driver; `scripts/install-lefthook.mjs` and the root `postinstall` were removed (see [NO-TELEMETRY.md](../NO-TELEMETRY.md)). Run the gates manually before pushing.
 
 Run typecheck once after a fresh clone:
 
