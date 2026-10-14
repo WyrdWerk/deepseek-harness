@@ -10,9 +10,9 @@ import type { FeedbackRecord } from '@deepseek-ai/dsh-command-feedback/types'
 import { remoteMethods } from '@deepseek-ai/dsh-typert-protocol'
 import { unsupportedInbox } from '@deepseek-ai/dsh-agent-loop-testkit'
 
-const { USER_ID, getOrCreateAnonymousUserId } = vi.hoisted(() => {
+const { getOrCreateAnonymousUserId } = vi.hoisted(() => {
   const USER_ID = '01234567-89ab-4cde-8f01-23456789abcd'
-  return { USER_ID, getOrCreateAnonymousUserId: vi.fn(() => USER_ID) }
+  return { getOrCreateAnonymousUserId: vi.fn(() => USER_ID) }
 })
 
 vi.mock('@deepseek-ai/dsh-anonymous-user-id', () => ({
@@ -153,8 +153,9 @@ describe('/feedback human command', () => {
     const test = await harness()
     await expect(run(test, ' the diff view is unreadable')).resolves.toEqual({
       kind: 'success',
-      text: `Feedback recorded for session ${test.session.id}\nAnonymous user: ${USER_ID}.`,
+      text: `Feedback recorded for session ${test.session.id}.`,
     })
+    expect(getOrCreateAnonymousUserId).not.toHaveBeenCalled()
     expect(feedbackTexts(test.session)).toEqual(['the diff view is unreadable'])
     const commandRun = test.session.snapshotEvents().find(event => event.type === 'command/run')
     expect(commandRun?.type === 'command/run' && Object.hasOwn(commandRun.data, 'args')).toBe(false)
@@ -213,8 +214,8 @@ describe('/feedback human command', () => {
       test.ctx.commands.execute(test.agent, '/feedback second', [], signal),
     ])
     expect(settled.map(item => item?.result)).toEqual([
-      { kind: 'success', text: `Feedback recorded for session ${test.session.id}\nAnonymous user: ${USER_ID}.` },
-      { kind: 'success', text: `Feedback recorded for session ${test.session.id}\nAnonymous user: ${USER_ID}.` },
+      { kind: 'success', text: `Feedback recorded for session ${test.session.id}.` },
+      { kind: 'success', text: `Feedback recorded for session ${test.session.id}.` },
     ])
     expect(feedbackTexts(test.session)).toEqual(['first', 'second'])
   })

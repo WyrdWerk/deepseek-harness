@@ -12,6 +12,8 @@ Status: implemented
 
 三个主要 Linux 作业（`node-24`、`node-24-coverage`、`node-24-consumers`）、三个 `node-compat` 矩阵条目和 `all-checks-passed` 通过 `DSH_CI_FAILOVER_LINUX` 解析；原生 Windows 作业通过 `DSH_CI_FAILOVER_WINDOWS` 解析。一个平台的开关不会重定向另一个平台。仓库写者将变量设为 `selfhosted` 时，适用的可信作业选择 `vm-backup` 或 `dsh-win-ci`；否则保留工作流定义的托管回退。Node 兼容性作业要求同仓库且非 fork 的头部以及非 Dependabot 作者，使用隔离运行时设置，并保留 `ubuntu-latest` 回退。Linux 故障切换限制快照并发，并跳过托管软件包缓存恢复。判定作业跟随工作作业，避免继续在不可用的托管池排队。每个开关都是写者可管理的仓库状态而非一次合并，因此在检查失败时仍然有效。`serial / linux (self-hosted standby)` 与 `serial / windows (self-hosted standby)` 通道在 master 推送上重新验证完整的未分片聚合流程。
 
+fork 仓库的三个主要 Linux 作业和四个原生 Windows 作业分别使用标准托管的 `ubuntu-24.04` 和 `windows-2025` 作为回退。上游企业标签属于组织基础设施，不是 fork 自动继承的算力；让 fork 作业在这些标签上排队不会产生验证结果。显式自托管开关保留现有优先级和 Dependabot 限制，非 fork 仓库保留企业默认值。工作流测试对全部七个作业验证两种来源情况。运行器选择本身并不证明完整套件能在标准运行器的资源限制内完成或通过。
+
 [被取代 CI 的取消策略](2026-09-09-cancel-superseded-ci.zh.md) 管理同一工作流/引用组内的 master 推送和手动运行，包括热备演练。master 快速更新可能让演练因反复被取消而始终无法得出结论。判断就绪状态时，使用最近一次已完成的热备结论，并核对其时间和提交；已取消或仅被调度的运行不构成就绪证据。
 
 ### 发布演练共用 Linux 开关

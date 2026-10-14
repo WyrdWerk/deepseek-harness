@@ -26,6 +26,12 @@ The anonymous-user-id package remains present for plugin compatibility, but the
 core harness no longer attaches its value to provider requests or OTel
 resources.
 
+## Fork validation
+
+Provider tests assert that requests omit both harness identity headers, including when a caller supplies a session id. Feedback tests require the session-only acknowledgement and no anonymous-id lookup. Workflow tests require the absence of the removed Git-hook installer. These expectations protect this fork's behavior instead of requiring telemetry to be restored to satisfy upstream tests.
+
+The [E2E workflow](.github/workflows/e2e.yml) accepts same-repository PRs inside this fork and pushes to `no-telemetry-compat`; external and Dependabot PRs remain excluded. A missing `DEEPSEEK_API_KEY_EXTERNAL` fails preflight rather than silently passing a skipped suite. The [CI workflow](.github/workflows/ci.yml) uses standard hosted Linux and Windows runners in forks instead of depending on upstream's private runner labels. Neither workflow configuration tests nor keyless model substitutes establish a successful live DeepSeek run.
+
 ## Tailscale settings compatibility patch
 
 Upstream deliberately gives non-loopback browser pages no durable settings, so

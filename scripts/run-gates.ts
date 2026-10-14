@@ -1506,8 +1506,15 @@ export function taskkillArgs(rootPid: number, descendants: number[]): string[][]
   return [rootPid, ...descendants].map(pid => ['/PID', String(pid), '/T', '/F'])
 }
 
-/** Breadth-first walk of the pid/ppid rows starting at `root`. */
-function collectDescendants(root: number, rows: Array<[number, number]>): number[] {
+/**
+ * Breadth-first walk of the pid/ppid rows starting at `root`. Windows never
+ * reparents and reuses pids, so a stale ppid column can form a cycle (or name
+ * the root itself); each pid is visited once so the walk always terminates.
+ * @param root - the pid whose descendants to collect.
+ * @param rows - pid/ppid rows from one process-table snapshot.
+ * @returns every distinct descendant pid, excluding `root`, in BFS order.
+ */
+export function collectDescendants(root: number, rows: Array<[number, number]>): number[] {
   const byParent = new Map<number, number[]>()
   for (const [pid, ppid] of rows) {
     const children = byParent.get(ppid) ?? []
@@ -1515,12 +1522,14 @@ function collectDescendants(root: number, rows: Array<[number, number]>): number
     byParent.set(ppid, children)
   }
   const result: number[] = []
-  const queue = byParent.get(root) ?? []
+  const seen = new Set<number>([root])
+  const queue = [...byParent.get(root) ?? []]
   for (let index = 0; index < queue.length; index += 1) {
     const pid = queue[index]
-    if (pid === undefined) continue
+    if (pid === undefined || seen.has(pid)) continue
+    seen.add(pid)
     result.push(pid)
-    queue.push(...(byParent.get(pid) ?? []))
+    for (const child of byParent.get(pid) ?? []) queue.push(child)
   }
   return result
 }
