@@ -5,6 +5,7 @@ import {
   defaultConcurrency,
   formatGateResultReason,
   gatesForMode,
+  collectDescendants,
   parsePidPpidLines,
   runGate,
   runGates,
@@ -917,6 +918,13 @@ describe('fail-fast scheduling', () => {
 })
 
 describe('process-table parsing', () => {
+  it('collects each descendant once even when reused Windows pids form a ppid cycle', () => {
+    // 10 -> 20 -> 30, then a reused pid 20 also claims 30 as its parent and
+    // 30 claims the root, closing a cycle the walk must not follow forever.
+    const rows: Array<[number, number]> = [[20, 10], [30, 20], [40, 30], [20, 30], [10, 40], [99, 1]]
+    expect(collectDescendants(10, rows)).toEqual([20, 30, 40])
+  })
+
   it('parses `pid ppid` rows from a POSIX ps dump', () => {
     expect(parsePidPpidLines('  123   1\n456 123\n  789 456\n')).toEqual([[123, 1], [456, 123], [789, 456]])
   })
