@@ -1,5 +1,6 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { runInNewContext } from 'node:vm'
 import * as yaml from 'js-yaml'
 import { describe, expect, it } from 'vitest'
 
@@ -8,6 +9,27 @@ const runnerPrivatePnpmDestination = /^\$\{\{ runner\.temp \}\}\/setup-pnpm-\$\{
 const nativeWindowsPnpmDestination = '${{ runner.temp }}/setup-pnpm-js-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}'
 
 describe('CI workflow', () => {
+  it.each([
+    ['node-24', 'ubuntu-24.04', 'dsh-ubuntu-24-04-16core'],
+    ['node-24-coverage', 'ubuntu-24.04', 'dsh-ubuntu-24-04-16core'],
+    ['node-24-consumers', 'ubuntu-24.04', 'dsh-ubuntu-24-04-16core'],
+    ['windows-build', 'windows-2025', 'dsh-windows-2025-16core'],
+    ['windows-coverage', 'windows-2025', 'dsh-windows-2025-16core'],
+    ['windows-native-tests', 'windows-2025', 'dsh-windows-2025-16core'],
+    ['windows-observational', 'windows-2025', 'dsh-windows-2025-16core'],
+  ])('%s uses available hosted runners in forks without changing upstream pools', (jobName, hosted, upstream) => {
+    const job = workflowJob(loadWorkflow('.github/workflows/ci.yml'), jobName)
+    if (typeof job['runs-on'] !== 'string') throw new TypeError(`${jobName} must define runner routing`)
+    for (const [fork, expected] of [[true, hosted], [false, upstream]] as const) {
+      const result: unknown = runInNewContext(job['runs-on'].trim().slice(3, -2), {
+        vars: { DSH_CI_FAILOVER_LINUX: '', DSH_CI_FAILOVER_WINDOWS: '' },
+        github: { event: { repository: { fork }, pull_request: { user: { login: 'maintainer' } } } },
+        fromJSON: JSON.parse,
+      }, { timeout: 1000 })
+      expect(result).toBe(expected)
+    }
+  })
+
   it.each(['ci.yml', 'ci-master.yml', 'e2e.yml', 'release.yml', 'release-vendor.yml'])(
     '%s cancels superseded validation runs without crossing workflow or ref boundaries', (name) => {
       const workflow = loadWorkflow('.github/workflows/' + name)
@@ -516,7 +538,55 @@ describe('CI workflow', () => {
 })
 
 describe('DeepSeek e2e workflow', () => {
-  it('prepares bubblewrap from the pinned payload without a package transaction', () => {
+  it.each([
+    ['same-repository upstream PR', 'pull_request', 'WyrdWerk/deepseek-harness', false, 'maintainer', true],
+    ['same-repository fork PR', 'pull_request', 'WyrdWerk/deepseek-harness', true, 'maintainer', true],
+    ['external fork PR', 'pull_request', 'outsider/deepseek-harness', true, 'contributor', false],
+    ['external non-fork PR', 'pull_request', 'outsider/deepseek-harness', false, 'contributor', false],
+    ['Dependabot PR reopened by a maintainer', 'pull_request', 'WyrdWerk/deepseek-harness', false, 'dependabot[bot]', false],
+    ['Dependabot PR inside a fork', 'pull_request', 'WyrdWerk/deepseek-harness', true, 'dependabot[bot]', false],
+    ['nightly', 'schedule', undefined, undefined, undefined, true],
+    ['manual dispatch', 'workflow_dispatch', undefined, undefined, undefined, true],
+    ['push', 'push', undefined, undefined, undefined, true],
+  ])('routes %s without confusing repository ancestry with PR trust', (_name, eventName, headRepository, fork, author, expected) => {
+    const e2e = workflowJob(loadWorkflow('.github/workflows/e2e.yml'), 'e2e')
+    if (typeof e2e.if !== 'string') throw new TypeError('DeepSeek e2e workflow must define a trust condition')
+    // Equal-typed, canonical-case fixtures exercise the boolean expression;
+    // JavaScript is not a general GitHub Actions expression evaluator.
+    const result: unknown = runInNewContext(e2e.if, {
+      github: {
+        repository: 'WyrdWerk/deepseek-harness',
+        event_name: eventName,
+        actor: 'maintainer',
+        event: eventName === 'pull_request' ? {
+          pull_request: { head: { repo: { full_name: headRepository, fork } }, user: { login: author } },
+        } : {},
+      },
+    }, { timeout: 1000 })
+    expect(result).toBe(expected)
+  })
+
+  it('validates fork-default pushes and keeps credentials out of setup and build', () => {
+    const workflow = loadWorkflow('.github/workflows/e2e.yml')
+    const push = workflowEvent(workflow, 'push')
+    expect(push.branches).toContain('no-telemetry-compat')
+    expect(workflow.on).not.toHaveProperty('pull_request_target')
+    expect(workflow.permissions).toEqual({ contents: 'read' })
+    expect(workflow.env).toEqual({ DSH_TELEMETRY_DISABLED: '1' })
+    const e2e = workflowJob(workflow, 'e2e')
+    expect(e2e.env).toBeUndefined()
+    if (!Array.isArray(e2e.steps)) throw new TypeError('DeepSeek e2e workflow must define steps')
+    const steps = e2e.steps.filter(isRecord)
+    const secretSteps = steps.filter(step => JSON.stringify(step).includes('secrets.'))
+    expect(secretSteps.map(step => step.name)).toEqual([
+      'Preflight (require DEEPSEEK_API_KEY)',
+      'E2E tests (real DeepSeek API)',
+    ])
+    expect(secretSteps[0]?.run).toContain('exit 1')
+    expect(secretSteps[1]).toMatchObject({ env: { DEEPSEEK_BASE_URL: 'https://api.deepseek.com' } })
+  })
+
+  it('prepares bubblewrap through the download-only bootstrap script', () => {
     const workflow = loadWorkflow('.github/workflows/e2e.yml')
     const e2e = workflowJob(workflow, 'e2e')
     if (!Array.isArray(e2e.steps)) throw new TypeError('DeepSeek e2e workflow must define steps')
@@ -1015,20 +1085,13 @@ describe('Documentation site publication', () => {
 })
 
 describe('Git hooks', () => {
-  it('leaves frozen Agent Note sidecars to the archive verifier', () => {
-    const lefthook = loadWorkflow('lefthook.yml')
-
-    for (const hookName of ['pre-commit', 'pre-merge-commit']) {
-      const hook = lefthook[hookName]
-      if (!isRecord(hook) || !Array.isArray(hook.jobs)) {
-        throw new TypeError(`lefthook must define ${hookName} jobs`)
-      }
-      const pairing: unknown = hook.jobs.find(
-        (job: unknown) => isRecord(job) && job.name === 'translation pairing (staged records)',
-      )
-
-      expect(pairing).toMatchObject({ exclude: ['.agents/notes/archived/**'] })
-    }
+  it('does not install Git hooks in the no-telemetry fork', () => {
+    const manifest: unknown = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'))
+    if (!isRecord(manifest)) throw new TypeError('package.json must define a manifest')
+    expect(manifest.scripts).not.toHaveProperty('postinstall')
+    expect(manifest.devDependencies).not.toHaveProperty('lefthook')
+    expect(existsSync(resolve(root, 'lefthook.yml'))).toBe(false)
+    expect(existsSync(resolve(root, 'scripts/install-lefthook.mjs'))).toBe(false)
   })
 })
 
