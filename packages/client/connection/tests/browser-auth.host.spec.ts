@@ -140,6 +140,30 @@ describe('BrowserAuth', () => {
     })
   })
 
+  it('uses a configured DSH_WEB_TOKEN as the stable launch token across restarts', async () => {
+    const stable = 'fork-stable-web-token-0123456789'
+    vi.stubEnv('DSH_WEB_TOKEN', stable)
+    try {
+      const store = new RecordCredentials()
+      const first = await createAuth(store)
+      const login = exchange(first)
+      expect(new URL(login.launchUrl).searchParams.get('token')).toBe(stable)
+
+      const restarted = await createAuth(store)
+      expect(restarted.authenticatedUrl('http://127.0.0.1:3080')).toBe(login.launchUrl)
+      expect(restarted.isAuthenticated(request('/', '127.0.0.1:3080', { cookie: login.cookie }))).toBe(true)
+
+      vi.stubEnv('DSH_WEB_TOKEN', '')
+      const unset = await createAuth(store)
+      expect(new URL(unset.authenticatedUrl('http://127.0.0.1:3080')).searchParams.get('token')).not.toBe(stable)
+
+      vi.stubEnv('DSH_WEB_TOKEN', 'x'.repeat(15))
+      await expect(createAuth(store)).rejects.toThrow('DSH_WEB_TOKEN must be at least 16 characters')
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
   it('accepts the cookie for index serving and gives every unauthenticated request one response', async () => {
     const auth = await createAuth(new RecordCredentials())
     const { cookie } = exchange(auth)
